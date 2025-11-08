@@ -11,7 +11,7 @@ service_name = "awfl-web"
 
 # Full image reference pushed to Artifact Registry
 # Example: us-central1-docker.pkg.dev/<project>/<repo>/<image>:<tag>
-# image = "us-central1-docker.pkg.dev/awfl-us/awfl-web/awfl-web:dev"
+# image = "us-central1-docker.pkg.dev/awfl-us/awfl-web/awfl-web:latest"
 image = ""
 
 # Domain mappings. Maintain order: [apex, www]

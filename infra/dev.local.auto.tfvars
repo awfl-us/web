@@ -1,0 +1,1 @@
+image = "us-central1-docker.pkg.dev/awfl-us/awfl-web/awfl-web:latest"
