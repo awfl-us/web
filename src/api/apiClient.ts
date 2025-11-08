@@ -16,9 +16,8 @@ function buildHeaders(opts: ApiClientOptions) {
   }
   if (opts.idToken) headers['Authorization'] = `Bearer ${opts.idToken}`
   if (opts.skipAuth) headers['X-Skip-Auth'] = '1'
-  // Include project header on all requests when available
-  const projectId = getCookie('awfl.projectId')
-  if (projectId) headers['x-project-id'] = projectId
+  // Always include project header; backend ignores value when not needed but may require presence
+  headers['x-project-id'] = getCookie('awfl.projectId') || ''
   return headers
 }
 
@@ -366,5 +365,19 @@ export function makeApiClient(opts: ApiClientOptions) {
       throw lastErr || new Error('collapseStateSet failed')
     },
     // Note: GET endpoint for hydration will be added in a follow-up task (z4EMEMZKuk8scCfpsF76)
+
+    // Credentials service under /api/workflows/creds
+    async credsList(ropts?: RequestOptions) {
+      return await getJson('/api/workflows/creds', opts, ropts)
+    },
+    async credsSet(provider: string, value: string, ropts?: RequestOptions) {
+      if (!provider) throw new Error('credsSet: provider is required')
+      if (typeof value !== 'string' || !value) throw new Error('credsSet: value is required')
+      return await postJson(`/api/workflows/creds/${encodeURIComponent(provider)}`, { value }, opts, ropts)
+    },
+    async credsDelete(provider: string, ropts?: RequestOptions) {
+      if (!provider) throw new Error('credsDelete: provider is required')
+      return await deleteJson(`/api/workflows/creds/${encodeURIComponent(provider)}`, opts, ropts)
+    },
   }
 }

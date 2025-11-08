@@ -8,8 +8,9 @@ import IntegrationsGitHub from './pages/IntegrationsGitHub'
 import { useAuth } from './auth/AuthProvider'
 import { getCookie, setCookie } from './utils/cookies'
 import { useProjectsList } from './features/projects/public'
+import { SettingsPage, useCredsApi } from './features/settings/public'
 
-type Route = 'home' | 'sessions' | 'tasks' | 'integrations-github'
+type Route = 'home' | 'sessions' | 'tasks' | 'integrations-github' | 'settings'
 
 function Home() {
   return (
@@ -56,32 +57,91 @@ function App() {
     if (next) setCookie('awfl.projectId', next)
   }
 
-  const AuthControls = () => (
-    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-      {loading ? (
-        <span style={{ fontSize: 12, color: '#6b7280' }}>Auth…</span>
-      ) : user ? (
-        <>
-          <span style={{ fontSize: 12, color: '#374151' }}>
-            {user.displayName || user.email || 'Signed in'}
-          </span>
+  const AuthControls = () => {
+    // Load creds to determine if we should show an alert indicator near Settings
+    const { creds, loading: credsLoading } = useCredsApi({ idToken, enabled: !!user })
+
+    // Show indicator if there are no saved credentials (no provider with a value)
+    const noSavedCreds = !credsLoading && (!Array.isArray(creds) || !creds.some(c => c.hasValue))
+
+    const [tipOpen, setTipOpen] = useState(false)
+
+    return (
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {loading ? (
+          <span style={{ fontSize: 12, color: '#6b7280' }}>Auth…</span>
+        ) : user ? (
+          <>
+            <span style={{ fontSize: 12, color: '#374151' }}>
+              {user.displayName || user.email || 'Signed in'}
+            </span>
+            <button
+              onClick={() => setRoute('settings')}
+              title="Open settings"
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: route === 'settings' ? '#eef2ff' : 'white', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              Settings
+            </button>
+            {noSavedCreds && (
+              <div
+                onMouseEnter={() => setTipOpen(true)}
+                onMouseLeave={() => setTipOpen(false)}
+                style={{ position: 'relative', display: 'inline-flex' }}
+              >
+                <span
+                  aria-label="Add an API key in Settings to use agents"
+                  style={{ width: 18, height: 18, borderRadius: '50%', background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, cursor: 'default' }}
+                >
+                  !
+                </span>
+                {tipOpen && (
+                  <div
+                    role="tooltip"
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      // Anchor to the right edge of the trigger to avoid viewport cutoff
+                      right: 0,
+                      left: 'auto',
+                      transform: 'none',
+                      background: '#111827',
+                      color: 'white',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      lineHeight: 1.3,
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+                      marginTop: 6,
+                      zIndex: 20,
+                      maxWidth: 280,
+                      width: 'max-content',
+                      whiteSpace: 'normal',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    You need to add an OpenAI API key in Settings to use agents
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              onClick={signOut}
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}
+            >
+              Sign out
+            </button>
+          </>
+        ) : (
           <button
-            onClick={signOut}
+            onClick={signIn}
             style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}
           >
-            Sign out
+            Sign in with Google
           </button>
-        </>
-      ) : (
-        <button
-          onClick={signIn}
-          style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}
-        >
-          Sign in with Google
-        </button>
-      )}
-    </div>
-  )
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', minHeight: 0 }}>
@@ -136,12 +196,16 @@ function App() {
             <Sessions />
           ) : route === 'tasks' ? (
             <Tasks />
+          ) : route === 'integrations-github' ? (
+            <IntegrationsGitHub />
+          ) : route === 'settings' ? (
+            <SettingsPage idToken={idToken} />
           ) : (
             <IntegrationsGitHub />
           )
         ) : (
           <div style={{ display: 'grid', gap: 8, padding: 16 }}>
-            <div style={{ color: '#374151' }}>Please sign in to view {route === 'sessions' ? 'Sessions' : route === 'tasks' ? 'Tasks' : 'GitHub'}.</div>
+            <div style={{ color: '#374151' }}>Please sign in to view {route === 'sessions' ? 'Sessions' : route === 'tasks' ? 'Tasks' : route === 'settings' ? 'Settings' : 'GitHub'}.</div>
             <div>
               <button
                 onClick={signIn}
