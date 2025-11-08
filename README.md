@@ -62,6 +62,68 @@ You can set the project cookie for scoping:
 - document.cookie = 'awfl.projectId=<your-project-id>; path=/'
 
 
+## API base URL (dev vs prod)
+- Development: leave VITE_API_BASE empty. The client will call relative paths like /api/... which are proxied by Vite to your local backend.
+- Production: set VITE_API_BASE to your backend origin (e.g., https://api.awfl.us). The client will call `${VITE_API_BASE}/api/...`.
+
+We provide defaults:
+- .env.development: VITE_API_BASE= (empty)
+- .env.production: VITE_API_BASE=https://api.awfl.us
+
+
+## CI/CD and deployment
+We use GitHub Actions + Google Cloud Workload Identity Federation (WIF) to build and push a container image to Artifact Registry on merges to main. The deploy workflow does not run Terraform; infra is applied manually.
+
+Key files
+- .github/workflows/deploy.yml — builds and pushes the image. First step loads env from .github/actions-variables.json if present; otherwise it uses repository Variables.
+- .github/workflows/sync-actions-variables.yml — helper to copy values from .github/actions-variables.json into repository Variables (manual trigger).
+- infra/ — Terraform that provisions the WIF provider/pool, minimal IAM, Cloud Run, and outputs the Actions variables file.
+
+Terraform-first setup (one-time)
+1) Set repo in Terraform variables
+   - Either create infra/dev.auto.tfvars with:
+     github_repository = "OWNER/REPO"
+   - Or pass -var='github_repository=OWNER/REPO' at apply time.
+2) Apply infra locally (from infra/)
+   - terraform init
+   - terraform apply \
+       -var='project_id=YOUR_GCP_PROJECT' \
+       -var='region=us-central1' \
+       -var='github_repository=OWNER/REPO'
+   - Optional: reuse an existing deploy SA by adding \
+       -var='create_deploy_sa=false' \
+       -var='deploy_sa_email=deploy@YOUR_GCP_PROJECT.iam.gserviceaccount.com'
+3) Commit the generated variables file
+   - Terraform writes .github/actions-variables.json at the repo root.
+   - Commit it so the deploy workflow can load these values, or
+   - Run the “Sync Actions repo variables” workflow to copy values into repository Variables and then (optionally) delete the file.
+
+What’s in .github/actions-variables.json
+- GCP_PROJECT_ID
+- GCP_REGION
+- GCP_WIF_PROVIDER (full resource name)
+- GCP_DEPLOY_SA (email)
+- ARTIFACT_REPO
+- IMAGE_NAME
+
+How the deploy workflow uses it
+- On each run, the first step loads any keys from .github/actions-variables.json into the job environment.
+- If the file is absent, it falls back to repository Variables with the same names.
+- The workflow authenticates via WIF and builds/pushes:
+  REGION-docker.pkg.dev/PROJECT/ARTIFACT_REPO/IMAGE_NAME:{sha,latest}
+
+
+## Cloud Run deletion protection (note for infra applies)
+If you manage the Cloud Run service with Terraform and gate creation on var.image (count = var.image != "" ? 1 : 0), destroying the service by setting image="" will fail while deletion protection is enabled. Clear protection in an update while the service still exists:
+- Terraform-first (two apply steps):
+  1) Keep count=1 by setting var.image to the current running image (gcloud run services describe ... to read it) and ensure deletion_protection=false in the resource. Apply.
+  2) Set var.image="" to let Terraform destroy. Apply again.
+- Or via gcloud (quick toggle):
+  gcloud run services update YOUR_SERVICE --region=YOUR_REGION --no-deletion-protection
+  gcloud run services describe YOUR_SERVICE --region=YOUR_REGION --format='value(deletionProtection)'
+  Then rerun Terraform to destroy.
+
+
 ## Project structure (high level)
 - src/pages: thin page orchestrators (compose features and state)
 - src/features/<domain>:
@@ -104,6 +166,7 @@ For full guidance and rationale, see AGENT.md.
 
 ## Environment variables
 Defined in .env.local (Vite exposes only VITE_*):
+- VITE_API_BASE (empty in dev; https://api.awfl.us in prod)
 - VITE_FIREBASE_API_KEY
 - VITE_FIREBASE_AUTH_DOMAIN
 - VITE_FIREBASE_PROJECT_ID

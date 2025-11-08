@@ -10,6 +10,9 @@ export type RequestOptions = {
   signal?: AbortSignal
 }
 
+// Determine default API base from environment. In dev, leave empty to use Vite proxy (/api).
+const DEFAULT_API_BASE: string = (import.meta as any)?.env?.VITE_API_BASE || ''
+
 function buildHeaders(opts: ApiClientOptions) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -21,8 +24,15 @@ function buildHeaders(opts: ApiClientOptions) {
   return headers
 }
 
-async function sendJson(path: string, body: any, method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT', opts: ApiClientOptions, ropts?: RequestOptions) {
-  const url = (opts.baseUrl || '') + path
+async function sendJson(
+  path: string,
+  body: any,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT',
+  opts: ApiClientOptions,
+  ropts?: RequestOptions
+) {
+  const base = opts.baseUrl ?? DEFAULT_API_BASE
+  const url = (base || '') + path
   const init: RequestInit = {
     method,
     headers: buildHeaders(opts),
@@ -42,15 +52,15 @@ async function sendJson(path: string, body: any, method: 'GET' | 'POST' | 'PATCH
     json = { raw: text }
   }
   // If server returned HTML (likely front-end index), surface as an error so callers can fallback.
-  if (ct.includes('text/html') || (typeof json?.raw === 'string' && /<\s*html/i.test(json.raw))) {
+  if (ct.includes('text/html') || (typeof (json as any)?.raw === 'string' && /<\s*html/i.test((json as any).raw))) {
     const msg = 'Unexpected HTML response'
     const err: any = new Error(msg)
     err.httpStatus = res.status
-    err.details = { raw: json?.raw }
+    err.details = { raw: (json as any)?.raw }
     throw err
   }
   if (!res.ok) {
-    const msg = json?.error || json?.message || res.statusText || 'Request failed'
+    const msg = (json as any)?.error || (json as any)?.message || res.statusText || 'Request failed'
     const err: any = new Error(msg)
     err.httpStatus = res.status
     err.details = json
@@ -59,9 +69,16 @@ async function sendJson(path: string, body: any, method: 'GET' | 'POST' | 'PATCH
   return json
 }
 
-async function sendJsonWithBodyAllowed(path: string, body: any, method: 'DELETE', opts: ApiClientOptions, ropts?: RequestOptions) {
+async function sendJsonWithBodyAllowed(
+  path: string,
+  body: any,
+  method: 'DELETE',
+  opts: ApiClientOptions,
+  ropts?: RequestOptions
+) {
   // Specialized sender to support DELETE with JSON body
-  const url = (opts.baseUrl || '') + path
+  const base = opts.baseUrl ?? DEFAULT_API_BASE
+  const url = (base || '') + path
   const init: RequestInit = {
     method,
     headers: buildHeaders(opts),
@@ -77,15 +94,15 @@ async function sendJsonWithBodyAllowed(path: string, body: any, method: 'DELETE'
   } catch {
     json = { raw: text }
   }
-  if (ct.includes('text/html') || (typeof json?.raw === 'string' && /<\s*html/i.test(json.raw))) {
+  if (ct.includes('text/html') || (typeof (json as any)?.raw === 'string' && /<\s*html/i.test((json as any).raw))) {
     const msg = 'Unexpected HTML response'
     const err: any = new Error(msg)
     err.httpStatus = res.status
-    err.details = { raw: json?.raw }
+    err.details = { raw: (json as any)?.raw }
     throw err
   }
   if (!res.ok) {
-    const msg = json?.error || json?.message || res.statusText || 'Request failed'
+    const msg = (json as any)?.error || (json as any)?.message || res.statusText || 'Request failed'
     const err: any = new Error(msg)
     err.httpStatus = res.status
     err.details = json
@@ -121,11 +138,11 @@ async function getJson(path: string, opts: ApiClientOptions, ropts?: RequestOpti
 function normalizeTasksArray(json: any): any[] | null {
   if (!json) return null
   if (Array.isArray(json)) return json
-  if (Array.isArray(json?.tasks)) return json.tasks
-  if (Array.isArray(json?.items)) return json.items
-  if (Array.isArray(json?.data)) return json.data
-  if (Array.isArray(json?.result)) return json.result
-  if (Array.isArray(json?.records)) return json.records
+  if (Array.isArray((json as any)?.tasks)) return (json as any).tasks
+  if (Array.isArray((json as any)?.items)) return (json as any).items
+  if (Array.isArray((json as any)?.data)) return (json as any).data
+  if (Array.isArray((json as any)?.result)) return (json as any).result
+  if (Array.isArray((json as any)?.records)) return (json as any).records
   return null
 }
 
@@ -139,9 +156,9 @@ export function makeApiClient(opts: ApiClientOptions) {
       // Updated endpoint for running TopicContextYoj
       const json = await postJson('/api/workflows/context/topicContextYoj/run', body, opts, ropts)
       // Normalize: ensure top-level yoj exists if only nested under lastExec/output
-      if (!json?.yoj) {
-        const nested = json?.lastExec?.output?.yoj || json?.lastExec?.result?.yoj || json?.result?.yoj
-        if (Array.isArray(nested)) json.yoj = nested
+      if (!(json as any)?.yoj) {
+        const nested = (json as any)?.lastExec?.output?.yoj || (json as any)?.lastExec?.result?.yoj || (json as any)?.result?.yoj
+        if (Array.isArray(nested)) (json as any).yoj = nested
       }
       return json
     },

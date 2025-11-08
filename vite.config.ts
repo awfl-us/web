@@ -11,10 +11,6 @@ export default defineConfig({
         target: 'http://localhost:5050',
         changeOrigin: true,
       },
-      '/jobs': {
-        target: 'http://localhost:5050',
-        changeOrigin: true,
-      },
       '/context': {
         target: 'http://localhost:5050',
         changeOrigin: true,

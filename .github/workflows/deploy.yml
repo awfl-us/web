@@ -1,0 +1,66 @@
+name: Deploy on merge
+
+on:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load env from .github/actions-variables.json (if present)
+        run: |
+          set -euo pipefail
+          FILE=".github/actions-variables.json"
+          if [ -f "$FILE" ]; then
+            echo "Loading variables from $FILE"
+            jq -r 'to_entries[] | [.key, .value] | @tsv' "$FILE" | while IFS=$'\t' read -r key val; do
+              printf '%s=%s\n' "$key" "$val" >> "$GITHUB_ENV"
+            done
+          else
+            echo "No $FILE found; using repository Variables"
+          fi
+
+      - name: Set defaults from repository Variables
+        run: |
+          echo "PROJECT_ID=${GCP_PROJECT_ID:-${{ vars.GCP_PROJECT_ID }}}" >> "$GITHUB_ENV"
+          echo "REGION=${GCP_REGION:-${{ vars.GCP_REGION || 'us-central1' }}}" >> "$GITHUB_ENV"
+          echo "ARTIFACT_REPO=${ARTIFACT_REPO:-${{ vars.ARTIFACT_REPO || 'awfl-web' }}}" >> "$GITHUB_ENV"
+          echo "IMAGE_NAME=${IMAGE_NAME:-${{ vars.IMAGE_NAME || 'awfl-web' }}}" >> "$GITHUB_ENV"
+          echo "GCP_WIF_PROVIDER=${GCP_WIF_PROVIDER:-${{ vars.GCP_WIF_PROVIDER || secrets.WORKLOAD_IDENTITY_PROVIDER }}}" >> "$GITHUB_ENV"
+          echo "GCP_DEPLOY_SA=${GCP_DEPLOY_SA:-${{ vars.GCP_DEPLOY_SA || secrets.DEPLOY_SA_EMAIL }}}" >> "$GITHUB_ENV"
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_DEPLOY_SA }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=registry,ref=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:latest
+          cache-to: type=inline
