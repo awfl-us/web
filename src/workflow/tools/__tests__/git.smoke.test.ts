@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { git, ToolError } from '../git'
+import { git } from '../git'
 
 declare const global: any
 

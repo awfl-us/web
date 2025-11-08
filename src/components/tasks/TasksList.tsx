@@ -1,4 +1,3 @@
-import React from 'react'
 import type { TaskRecord } from '../../hooks/useTasksList'
 
 function statusBg(status?: string): { bg: string; border: string } {

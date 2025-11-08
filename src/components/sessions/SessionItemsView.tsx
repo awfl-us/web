@@ -1,4 +1,4 @@
-import { Ref } from 'react'
+import type { Ref } from 'react'
 import { TasksList } from '../tasks/TasksList'
 import { YojMessageList } from './YojMessageList'
 import { ErrorBanner } from '../common/ErrorBanner'
@@ -92,7 +92,7 @@ export function SessionItemsView({
             ) : null}
 
             {(sessionTasks?.length || 0) > 0 || !loadingTasks ? (
-              <TasksList tasks={sessionTasks} onEdit={onEditTask} onDelete={onDeleteTask} />
+              <TasksList tasks={sessionTasks ?? []} onEdit={onEditTask} onDelete={onDeleteTask} />
             ) : null}
           </div>
         ) : messages.length === 0 && !running && !execError ? (

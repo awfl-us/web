@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { makeApiClient } from '../api/apiClient'
 import type { AgentRecord, AgentUpsertInput } from '../types/agent'
 import type { ToolItem } from '../features/tools/public'
 
 export function useAgentsApi(params: { idToken?: string | null; enabled?: boolean }) {
-  const { idToken, enabled = true } = params
+  const { idToken } = params
   const skipAuth = (import.meta as any)?.env?.VITE_SKIP_AUTH === '1'
   const client = useMemo(() => makeApiClient({ idToken: idToken ?? undefined, skipAuth }), [idToken, skipAuth])
 

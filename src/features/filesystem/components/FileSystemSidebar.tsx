@@ -117,7 +117,7 @@ function Row({
 
 export function FileSystemSidebar({
   idToken,
-  sessionId,
+  sessionId: _sessionId,
   pendingCount = 0,
   errorCount = 0,
   onPlainify,

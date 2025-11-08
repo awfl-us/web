@@ -1,5 +1,3 @@
-import { useMemo } from 'react'
-
 export type Session = {
   id: string
   title: string

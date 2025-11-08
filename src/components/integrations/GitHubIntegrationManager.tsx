@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../auth/AuthProvider'
 import { useGitIntegration } from '../../hooks/useGitIntegration'
-import type { GitConfig } from '../../types/git'
 import { ErrorBanner } from '../common/ErrorBanner'
 
 export type GitHubIntegrationManagerProps = {
@@ -55,7 +54,7 @@ export function GitHubIntegrationManager(props: GitHubIntegrationManagerProps) {
     if (initialProjectId) setProjectId(initialProjectId)
   }, [initialProjectId])
 
-  const { config, loading, saving, testing, error, reload, save, remove, test } = useGitIntegration({ idToken, projectId, enabled: !!projectId })
+  const { config, loading, saving, testing, error, save, remove, test } = useGitIntegration({ idToken, projectId, enabled: !!projectId })
 
   const [form, setForm] = useState<{ owner: string; repo: string; defaultBranch: string; token: string }>({ owner: '', repo: '', defaultBranch: '', token: '' })
   const [testResult, setTestResult] = useState<any>(null)
@@ -145,7 +144,7 @@ export function GitHubIntegrationManager(props: GitHubIntegrationManagerProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch', maxWidth: 720 }}>
       <h2 style={{ margin: 0 }}>GitHub integration</h2>
 
-      {(error || actionError) && <ErrorBanner message={actionError || error || ''} />}
+      {(error || actionError) && <ErrorBanner>{actionError || error || ''}</ErrorBanner>}
 
       <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>

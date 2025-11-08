@@ -21,7 +21,7 @@ export function SelectionToolbar({
   const pending = pendingCount > 0
   const hasErrors = errorCount > 0
 
-  const handlePlainifyButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handlePlainifyButtonClick = (_e: React.MouseEvent<HTMLButtonElement>) => {
     // Unconditional diagnostic log to trace click on the actual button itself
     try {
       console.log('[fs][toolbar] Plainify button clicked', {

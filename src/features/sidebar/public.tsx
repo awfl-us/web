@@ -1,5 +1,3 @@
-import React from 'react'
-
 export type SidebarNavItem = {
   key: string
   label: string

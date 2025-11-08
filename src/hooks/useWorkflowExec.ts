@@ -30,7 +30,7 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
 
   const [latest, setLatest] = useState<LatestExecItem | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
   const bump = useRef(0)
 
   const skipAuth = (import.meta as any)?.env?.VITE_SKIP_AUTH === '1'

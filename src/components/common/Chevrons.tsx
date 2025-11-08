@@ -1,5 +1,3 @@
-import React from 'react'
-
 // Simple, reusable double-chevron glyph used for expand/collapse affordances.
 // Uses text glyphs for minimal footprint; can be swapped to SVG later if desired.
 export function Chevrons(props: { expanded: boolean; size?: number; color?: string }) {

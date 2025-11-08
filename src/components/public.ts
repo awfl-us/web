@@ -2,7 +2,7 @@
 // Import from this module in pages/hooks instead of deep relative paths.
 
 export { SessionSidebar } from './sessions'
-export { SessionDetail } from './sessions/SessionDetail'
+export { SessionDetails as SessionDetail } from './sessions'
 export { SessionHeader } from './sessions/SessionHeader'
 export { YojMessageList } from './sessions/YojMessageList'
 

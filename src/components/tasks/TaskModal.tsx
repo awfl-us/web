@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { TaskRecord } from '../../hooks/useTasksList'
 
 type TaskStatus = 'Queued' | 'In Progress' | 'Done' | 'Stuck'

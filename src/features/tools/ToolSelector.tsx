@@ -1,4 +1,3 @@
-import React from 'react'
 import type { ToolItem } from './types'
 
 export type ToolSelectorProps = {

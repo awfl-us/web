@@ -1,5 +1,3 @@
-import React from 'react'
-
 type Counts = {
   queued?: number
   inProgress?: number

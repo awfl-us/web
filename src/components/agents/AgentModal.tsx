@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ToolSelector } from '../../features/tools/public'
 import type { ToolItem } from '../../features/tools/public'
 

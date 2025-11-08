@@ -32,7 +32,10 @@ export function useScrollHome({
   const awayRef = useRef(false) // sticky flag: user scrolled away far enough
 
   // Helper to compute distance-from-home and booleans
-  function compute(el: HTMLElement) {
+  function compute(el: HTMLElement | null) {
+    if (!el) {
+      return { dist: 0, atHome: true, awaySticky: false }
+    }
     const { scrollTop, scrollHeight, clientHeight } = el
     if (home === 'bottom') {
       const distFromBottom = scrollHeight - (scrollTop + clientHeight)
@@ -58,7 +61,8 @@ export function useScrollHome({
     if (!el) return
 
     function onScroll() {
-      const { atHome, awaySticky } = compute(el)
+      const node = containerRef.current
+      const { atHome, awaySticky } = compute(node)
       setIsAtHome(atHome)
       if (awaySticky) awayRef.current = true
       if (atHome) awayRef.current = false // reset sticky when user returns home
@@ -83,6 +87,7 @@ export function useScrollHome({
     el.addEventListener('awfl:user-content-expand', onUserContentExpand as EventListener)
 
     return () => {
+      if (!el) return
       el.removeEventListener('scroll', onScroll)
       el.removeEventListener('awfl:user-content-expand', onUserContentExpand as EventListener)
     }
@@ -98,8 +103,6 @@ export function useScrollHome({
   // Scroll on initial load or when new items arrive and user is at home
   useEffect(() => {
     if (!enabled) return
-    const el = containerRef.current
-    if (!el) return
 
     const prev = prevCountRef.current
     const count = itemCount || 0
@@ -107,19 +110,22 @@ export function useScrollHome({
     const hasNew = count > prev
 
     function scrollToHome(behavior: ScrollBehavior) {
+      const node = containerRef.current
+      if (!node) return
       if (home === 'bottom') {
-        if (anchorRef?.current?.scrollIntoView) {
-          anchorRef.current.scrollIntoView({ behavior, block: 'end' })
+        const anchor = anchorRef?.current
+        if (anchor && 'scrollIntoView' in anchor) {
+          anchor.scrollIntoView({ behavior, block: 'end' })
         } else {
-          el.scrollTo({ top: el.scrollHeight, behavior })
+          node.scrollTo({ top: node.scrollHeight, behavior })
         }
       } else {
-        el.scrollTo({ top: 0, behavior })
+        node.scrollTo({ top: 0, behavior })
       }
     }
 
     // Recompute "at home" at the time we decide whether to auto-scroll.
-    const { atHome, awaySticky } = compute(el)
+    const { atHome, awaySticky } = compute(containerRef.current)
 
     if (isInitial) {
       // Always snap to home on first render with content
@@ -132,7 +138,7 @@ export function useScrollHome({
     }
 
     prevCountRef.current = count
-  }, [itemCount, enabled, home, anchorRef, threshold, stickyAwayThreshold])
+  }, [itemCount, enabled, home, anchorRef, threshold, stickyAwayThreshold, containerRef])
 
   return { isAtHome }
 }

@@ -76,7 +76,6 @@ We use GitHub Actions + Google Cloud Workload Identity Federation (WIF) to build
 
 Key files
 - .github/workflows/deploy.yml — builds and pushes the image. First step loads env from .github/actions-variables.json if present; otherwise it uses repository Variables.
-- .github/workflows/sync-actions-variables.yml — helper to copy values from .github/actions-variables.json into repository Variables (manual trigger).
 - infra/ — Terraform that provisions the WIF provider/pool, minimal IAM, Cloud Run, and outputs the Actions variables file.
 
 Terraform-first setup (one-time)
@@ -111,17 +110,6 @@ How the deploy workflow uses it
 - If the file is absent, it falls back to repository Variables with the same names.
 - The workflow authenticates via WIF and builds/pushes:
   REGION-docker.pkg.dev/PROJECT/ARTIFACT_REPO/IMAGE_NAME:{sha,latest}
-
-
-## Cloud Run deletion protection (note for infra applies)
-If you manage the Cloud Run service with Terraform and gate creation on var.image (count = var.image != "" ? 1 : 0), destroying the service by setting image="" will fail while deletion protection is enabled. Clear protection in an update while the service still exists:
-- Terraform-first (two apply steps):
-  1) Keep count=1 by setting var.image to the current running image (gcloud run services describe ... to read it) and ensure deletion_protection=false in the resource. Apply.
-  2) Set var.image="" to let Terraform destroy. Apply again.
-- Or via gcloud (quick toggle):
-  gcloud run services update YOUR_SERVICE --region=YOUR_REGION --no-deletion-protection
-  gcloud run services describe YOUR_SERVICE --region=YOUR_REGION --format='value(deletionProtection)'
-  Then rerun Terraform to destroy.
 
 
 ## Project structure (high level)

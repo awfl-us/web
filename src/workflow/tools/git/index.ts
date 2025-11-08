@@ -2,7 +2,7 @@
 // Canonical backend prefix: /api/workflows/services/git
 // These wrappers use the shared api client and map errors to ToolError with stable codes.
 
-import { makeApiClient, type ApiClientOptions, type RequestOptions } from '../../../api/apiClient'
+import { makeApiClient, type RequestOptions } from '../../../api/apiClient'
 
 export class ToolError extends Error {
   code: string
