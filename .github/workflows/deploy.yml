@@ -37,6 +37,7 @@ jobs:
           echo "REGION=${GCP_REGION:-${{ vars.GCP_REGION || 'us-central1' }}}" >> "$GITHUB_ENV"
           echo "ARTIFACT_REPO=${ARTIFACT_REPO:-${{ vars.ARTIFACT_REPO || 'awfl-web' }}}" >> "$GITHUB_ENV"
           echo "IMAGE_NAME=${IMAGE_NAME:-${{ vars.IMAGE_NAME || 'awfl-web' }}}" >> "$GITHUB_ENV"
+          echo "SERVICE=${SERVICE:-${{ vars.CLOUD_RUN_SERVICE || 'awfl-web' }}}" >> "$GITHUB_ENV"
           echo "GCP_WIF_PROVIDER=${GCP_WIF_PROVIDER:-${{ vars.GCP_WIF_PROVIDER || secrets.WORKLOAD_IDENTITY_PROVIDER }}}" >> "$GITHUB_ENV"
           echo "GCP_DEPLOY_SA=${GCP_DEPLOY_SA:-${{ vars.GCP_DEPLOY_SA || secrets.DEPLOY_SA_EMAIL }}}" >> "$GITHUB_ENV"
 
@@ -64,3 +65,10 @@ jobs:
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=registry,ref=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:latest
           cache-to: type=inline
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
