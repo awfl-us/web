@@ -26,6 +26,7 @@ Repo layout (relevant)
   - iam.tf — deployment service account + IAM bindings
   - wif.tf — WIF pool/provider (for GitHub Actions) and emission of Actions variables file
   - storage.tf — optional GCS bucket for Terraform state
+  - backend.tf — hardcoded GCS backend (bucket/prefix) for Terraform remote state
   - variables.tf — inputs (project, region, image, domains, GitHub repo, etc.)
   - outputs.tf — service_url + DNS records + CI variables
   - versions.tf — provider and version constraints
@@ -34,21 +35,23 @@ Repo layout (relevant)
 Bootstrap the shared Terraform state bucket (in this repo)
 This repo can create its own GCS bucket for Terraform state so other repos (e.g., DNS/backend) can consume outputs via remote_state.
 
-1) Ensure dev.auto.tfvars has:
+Important: backend.tf is hardcoded to use the GCS bucket/prefix below. The first time you apply, the bucket will not exist yet. Initialize with the backend disabled to create it, then migrate state.
+
+1) Ensure dev.auto.tfvars has (and keep these in sync with backend.tf):
    create_tfstate_bucket = true
    tfstate_bucket_name   = "tfstate-awfl-web"   # must be globally unique
    tfstate_prefix        = "infra/envs/prod"
 
-2) Initialize locally (no remote backend yet) and apply to create the bucket:
+2) Initial apply WITHOUT the backend (creates the bucket):
    cd infra
-   terraform init
+   terraform init -backend=false
    terraform apply -var "project_id=YOUR_PROJECT" -var "region=us-central1"
 
-3) Migrate to the new GCS backend:
-   terraform init \
-     -migrate-state \
-     -backend-config="bucket=tfstate-awfl-web" \
-     -backend-config="prefix=infra/envs/prod"
+3) Migrate local state into the hardcoded GCS backend (uses backend.tf):
+   terraform init -migrate-state
+
+   # If you ever change the bucket/prefix in backend.tf, run:
+   # terraform init -migrate-state
 
 Two-phase (multi-stage) apply
 You can apply before an image exists, then complete once the image is built/pushed.
@@ -87,10 +90,13 @@ You can apply before an image exists, then complete once the image is built/push
     - root_records/www_records: DNS RRsets for the backend DNS repo
 
 Terraform apply (summary)
-- With remote backend (after bootstrap):
-  terraform init \
-    -backend-config="bucket=tfstate-awfl-web" \
-    -backend-config="prefix=infra/envs/prod"
+- First-time bootstrap (no bucket yet):
+  terraform init -backend=false
+  terraform apply -var "project_id=YOUR_PROJECT" -var "region=us-central1"
+  terraform init -migrate-state
+
+- Day 2 and beyond (backend configured via backend.tf):
+  terraform init   # only needed after repo checkout or backend changes
   terraform apply -var "project_id=YOUR_PROJECT" -var "region=us-central1" [-var "image=..."] [-var "github_repository=OWNER/REPO"]
 
 Key variables (see variables.tf)
@@ -104,7 +110,7 @@ Key variables (see variables.tf)
 - create_deploy_sa (bool, default true): Create a deployment service account and bind roles
 - github_repository (string, optional): OWNER/REPO used for WIF provider and CI variables file
 - create_tfstate_bucket (bool, default true): Create a GCS bucket for Terraform state
-- tfstate_bucket_name/tfstate_prefix: State bucket settings
+- tfstate_bucket_name/tfstate_prefix: State bucket settings (must match backend.tf once migrated)
 
 Outputs (consumed by backend DNS repo and CI)
 - service_url: Public URL of the Cloud Run service (null until image provided and service created)
@@ -132,7 +138,7 @@ Recommended flow
 4) Run Phase 2 apply locally with image set to create/update Cloud Run and domain mappings.
 
 Backend DNS repo: consume via terraform_remote_state
-1) Data source for this repo’s state (assumes GCS backend configured above):
+1) Data source for this repo’s state (GCS backend configured via backend.tf):
 
 data "terraform_remote_state" "awfl_web" {
   backend = "gcs"
