@@ -13,8 +13,7 @@ export function CollapsedGroupCard(props: {
   children?: React.ReactNode
 }) {
   const { sessionId, idToken, label, description, responseId, defaultExpanded = false, children } = props
-  const env: any = (import.meta as any)?.env
-  const skipAuth = !!env?.VITE_SKIP_AUTH
+  const skipAuth = (import.meta as any)?.env?.VITE_SKIP_AUTH === '1'
 
   // Optimistic UI override; server is the single source of truth.
   // resolvedExpanded = optimistic ?? defaultExpanded
