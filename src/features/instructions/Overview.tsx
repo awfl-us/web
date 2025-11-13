@@ -1,7 +1,9 @@
 /*
   Presentational overview for AWFL
   - Hero + Quick Start for the CLI
-  - High-level overview of the Scala DSL and workflow-utils
+  - High-level overview of agent composition via Scala mixins (traits)
+  - Low-level overview of the Scala DSL building blocks
+  - Workflow-utils highlights
   - Pure render component; no side effects
 */
 
@@ -45,8 +47,68 @@ export function InstructionsOverview() {
         </Section>
 
         <Section
-          title="Build custom agents with the AWFL DSL (Scala 3)"
-          subtitle="Describe workflows as typed, composable data — readable, testable, and engine-agnostic."
+          title="Compose agents with Scala mixins (traits)"
+          subtitle="Build behavior by stacking small traits: Agents wire prompts, preloads, tasks, CLI tools, and routing."
+        >
+          <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+            <Card title="Minimal agent example">
+              <CodeBlock language="scala">
+{`import us.awfl.workflows.traits.Agent
+import us.awfl.workflows.traits.Preloads._
+
+object HelloAgent extends Agent {
+  override def preloads = List(
+    // Inject file/command output as additional system context
+    PreloadFile("AGENT.md"),
+    PreloadCommand("date -u")
+  )
+
+  override def prompt =
+    """You are a helpful assistant for the Hello project.
+       Respond succinctly and use the preloaded docs as context.""".stripMargin
+}
+`}
+              </CodeBlock>
+              <p style={{ margin: '8px 0 0 0', color: '#4b5563' }}>Every Agent emits two workflows: <code>{'{'}AgentName{'}'}</code> (chat) and <code>{'{'}AgentName{'}'}</code>-prompts (for inspecting composed prompts).</p>
+            </Card>
+
+            <Card title="Customize tools and prompts">
+              <CodeBlock language="scala">
+{`import us.awfl.workflows.traits.Agent
+import us.awfl.dsl.*
+import us.awfl.dsl.auto.given
+
+object ReadOnlyAgent extends Agent {
+  override def prompt = "Read-only assistant"
+
+  // Keep only READ_FILE; drop UPDATE_FILE and RUN_COMMAND
+  override def buildTools = joinSteps(
+    "readOnlyTools",
+    super.buildTools,
+    buildList("limitCliTools", List("READ_FILE"))
+  )
+
+  // Add extra guidance to the system prompt stack
+  override def buildPrompts = joinSteps(
+    "extraGuidance",
+    super.buildPrompts,
+    buildList("myGuidance", List(ChatMessage("system", str("Prefer small, incremental changes."))))
+  )
+}
+`}
+              </CodeBlock>
+              <ul style={{ margin: '8px 0 0 0', padding: '0 0 0 18px', color: '#374151' }}>
+                <li>Composition stack: <code>Agent</code> extends <code>Workflow</code> with <code>EventHandler</code> with <code>Preloads</code> with <code>Tasks</code> with <code>Cli</code>.</li>
+                <li>Prompts and tools are layered by traits; override <code>buildPrompts</code> / <code>buildTools</code> to refine behavior.</li>
+                <li>EventHandler resolves tool names and dispatches via helpers.ToolDispatcher.</li>
+              </ul>
+            </Card>
+          </div>
+        </Section>
+
+        <Section
+          title="Low‑level DSL (Scala 3): typed building blocks"
+          subtitle="Describe workflows as typed, composable data — readable, testable, and engine‑agnostic."
         >
           <div style={{ display: 'grid', gap: 16, gridTemplateColumns: '1.2fr 1fr' }}>
             <div>
@@ -70,8 +132,8 @@ val program = Block("example", List(Log("log_user", name)) -> greetings)
               </CodeBlock>
             </div>
             <ul style={{ margin: 0, padding: '0 0 0 18px', color: '#374151', display: 'grid', gap: 8 }}>
-              <li>Values are strongly typed: compose <code>Value[T]</code>, <code>ListValue[T]</code>, and CEL expressions.</li>
-              <li>Steps are declarative: <code>Log</code>, <code>Call</code>, <code>For</code>, <code>Try</code>, <code>Switch</code>, <code>Block</code>.</li>
+              <li>Strong types: compose <code>Value[T]</code>, <code>ListValue[T]</code>, and CEL expressions.</li>
+              <li>Declarative steps: <code>Log</code>, <code>Call</code>, <code>For</code>, <code>Try</code>, <code>Switch</code>, <code>Block</code>.</li>
               <li>Pure description: render to JSON/YAML, send to an engine, or interpret locally.</li>
             </ul>
           </div>
@@ -141,9 +203,9 @@ function Hero() {
     >
       <div style={{ display: 'grid', gap: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#6366f1' }}>AWFL</div>
-        <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.2 }}>Build AI agents and workflows that work in your codebase</h1>
+        <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.2 }}>Compose Scala agent mixins and typed workflows</h1>
         <p style={{ margin: 0, color: '#4b5563' }}>
-          Talk to codebase‑aware agents in your terminal, compose typed workflows in Scala, and use tiny utilities
+          Build codebase‑aware agents by stacking small traits, and describe workflows with a typed DSL. Use tiny utilities
           for LLM chat, context reads, and distributed locks.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
