@@ -1,6 +1,4 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 import Sessions from './pages/Sessions'
 import Tasks from './pages/Tasks'
@@ -9,26 +7,15 @@ import { useAuth } from './auth/AuthProvider'
 import { getCookie, setCookie } from './utils/cookies'
 import { useProjectsList } from './features/projects/public'
 import { SettingsPage, useCredsApi } from './features/settings/public'
+import { InstructionsOverview } from './features/instructions/public'
 
 type Route = 'home' | 'sessions' | 'tasks' | 'integrations-github' | 'settings'
 
 function Home() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <p>Welcome! Use the navigation above to open the Sessions or Tasks pages.</p>
-      </div>
-      <p className="read-the-docs">Click on the Vite and React logos to learn more</p>
-    </>
+    <div style={{ padding: 0 }}>
+      <InstructionsOverview />
+    </div>
   )
 }
 
@@ -146,7 +133,10 @@ function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', minHeight: 0 }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
-        <strong>AWFL</strong>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <img src="/awfl.svg" alt="AWFL" width={28} height={28} style={{ display: 'block', flexShrink: 0 }} />
+          <strong>AWFL</strong>
+        </div>
         <nav style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
             onClick={() => setRoute('home')}

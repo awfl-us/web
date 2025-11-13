@@ -108,6 +108,7 @@ Encapsulation checklist for new work
   4) Hooks must accept an enabled flag and use AbortController; guard setState on unmount.
   5) Do not import another feature’s internals; extend that feature’s public.ts if needed.
   6) Preserve the page orchestrator’s role; pages compose public hooks/components and pass ids/tokens only.
+  7) Documentation sync: update src/features/README.md (public surfaces and usage map) to reflect any new or changed exports/usages.
 
 Enforcement (warn-only, planned)
 - ESLint layering rules (warn-only):
