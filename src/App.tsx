@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, useRef } from 'react'
 import './App.css'
 import Sessions from './pages/Sessions'
 import Tasks from './pages/Tasks'
@@ -39,6 +39,7 @@ function App() {
     const next = e.target.value
     if (next === '__manage__') {
       setRoute('integrations-github')
+      setMobileOpen(false)
       return
     }
     setProjectId(next)
@@ -131,14 +132,54 @@ function App() {
     )
   }
 
+  // Mobile menu state and a11y helpers
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!mobileOpen) return
+    const prev = (document.activeElement as HTMLElement | null) || null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMobileOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    // Focus close button on open
+    setTimeout(() => {
+      closeBtnRef.current?.focus()
+    }, 0)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      prev?.focus?.()
+    }
+  }, [mobileOpen])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', minHeight: 0 }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {/* Brand (hidden on mobile via CSS) */}
+        <div className="app-brand" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <img src="/awfl.svg" alt="AWFL" width={28} height={28} style={{ display: 'block', flexShrink: 0 }} />
           <strong>AWFL</strong>
         </div>
-        <nav style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+
+        {/* Hamburger (mobile only via CSS) */}
+        <button
+          className="app-hamburger"
+          aria-label="Open menu"
+          aria-controls="app-mobile-menu"
+          aria-expanded={mobileOpen || undefined}
+          onClick={() => setMobileOpen(true)}
+          style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}
+        >
+          ☰
+        </button>
+
+        {/* Left nav (hidden on small screens via CSS) */}
+        <nav className="app-nav-left" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
             onClick={() => setRoute('home')}
             style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: route === 'home' ? '#eef2ff' : 'white' }}
@@ -179,6 +220,68 @@ function App() {
         </nav>
         <AuthControls />
       </header>
+
+      {/* Mobile drawer menu */}
+      {mobileOpen && (
+        <>
+          <div className="drawer-overlay" onClick={() => setMobileOpen(false)} />
+          <div
+            ref={panelRef}
+            className="drawer-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
+            id="app-mobile-menu"
+          >
+            <div className="drawer-header">
+              <strong>Menu</strong>
+              <button ref={closeBtnRef} onClick={() => setMobileOpen(false)} aria-label="Close menu" style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}>
+                ✕
+              </button>
+            </div>
+            <div className="drawer-body">
+              <button
+                onClick={() => { setRoute('home'); setMobileOpen(false) }}
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: route === 'home' ? '#eef2ff' : 'white', textAlign: 'left' }}
+              >
+                Home
+              </button>
+              <button
+                onClick={() => { setRoute('sessions'); setMobileOpen(false) }}
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: route === 'sessions' ? '#eef2ff' : 'white', textAlign: 'left' }}
+              >
+                Sessions
+              </button>
+              <button
+                onClick={() => { setRoute('tasks'); setMobileOpen(false) }}
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: route === 'tasks' ? '#eef2ff' : 'white', textAlign: 'left' }}
+              >
+                Tasks
+              </button>
+
+              <label style={{ fontSize: 12, color: '#374151' }}>Project</label>
+              <select
+                value={projectId || ''}
+                onChange={handleProjectSelect}
+                title="Select GitHub project or manage settings"
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}
+              >
+                <option value="">{loadingProjects ? 'Loading…' : projects.length ? 'Select project…' : 'No projects'}</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name || p.remote || p.id}</option>
+                ))}
+                <option value="__manage__">Manage…</option>
+              </select>
+
+              {user && projectId ? (
+                <div>
+                  <ConsumerStatusPill idToken={idToken} projectId={projectId} enabled={true} />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </>
+      )}
 
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {route === 'home' ? (

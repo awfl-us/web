@@ -15,6 +15,7 @@ export interface SessionDetailProps {
   onAddTask?: () => void
   onEditAgent?: () => void
   activeStatus: TaskStatus | null
+  onBack?: () => void
 
   // Items (messages/tasks)
   execError?: string | null
@@ -56,6 +57,7 @@ export function SessionDetail(props: SessionDetailProps) {
     onAddTask,
     onEditAgent,
     activeStatus,
+    onBack,
     execError,
     wfError,
     running,
@@ -168,6 +170,7 @@ export function SessionDetail(props: SessionDetailProps) {
         onAddTask={onAddTask}
         onEditAgent={onEditAgent}
         avgUsdPerHourText={avgUsdPerHourText || undefined}
+        onBack={onBack}
       />
 
       {execError ? (

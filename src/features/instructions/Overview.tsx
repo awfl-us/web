@@ -110,7 +110,8 @@ object ReadOnlyAgent extends Agent {
           title="Low‑level DSL (Scala 3): typed building blocks"
           subtitle="Describe workflows as typed, composable data — readable, testable, and engine‑agnostic."
         >
-          <div style={{ display: 'grid', gap: 16, gridTemplateColumns: '1.2fr 1fr' }}>
+          {/* Responsive two-up that collapses to one column on small screens */}
+          <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
             <div>
               <CodeBlock language="scala">
 {`import us.awfl.dsl._

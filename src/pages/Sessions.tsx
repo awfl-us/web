@@ -27,6 +27,23 @@ export default function Sessions() {
   const [query, setQuery] = useState('')
   const [leftPanel, setLeftPanel] = useState<'sessions' | 'fs'>('sessions')
 
+  // Mobile detection and pane state
+  const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia('(max-width: 640px)').matches : false)
+  useEffect(() => {
+    if (!('matchMedia' in window)) return
+    const mq = window.matchMedia('(max-width: 640px)')
+    const onChange = () => setIsMobile(mq.matches)
+    mq.addEventListener ? mq.addEventListener('change', onChange) : mq.addListener(onChange)
+    onChange()
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener('change', onChange) : mq.removeListener(onChange)
+    }
+  }, [])
+  const [pane, setPane] = useState<'list' | 'detail'>(isMobile ? 'list' : 'detail')
+  useEffect(() => {
+    setPane(isMobile ? 'list' : 'detail')
+  }, [isMobile])
+
   // Load sessions via hook
   const { sessions, loading: loadingList, error: listError } = useSessionsList({
     userId: user?.uid,
@@ -60,6 +77,13 @@ export default function Sessions() {
       setSelectedId(null)
     }
   }, [idToken, user?.uid, setSelectedId])
+
+  // When a selection changes on mobile, switch to detail; when cleared, switch to list
+  useEffect(() => {
+    if (!isMobile) return
+    if (selectedId) setPane('detail')
+    else setPane('list')
+  }, [isMobile, selectedId])
 
   // Compute workflow name based on session and env
   const workflowName = getWorkflowName(selected?.id)
@@ -203,7 +227,7 @@ export default function Sessions() {
         style={{
           height: '100%',
           minHeight: 0,
-          display: 'flex',
+          display: isMobile ? (pane === 'list' ? 'flex' : 'none') : 'flex',
           overflow: 'hidden',
         }}
       >
@@ -230,6 +254,7 @@ export default function Sessions() {
               onSelect={(id) => {
                 setSelectedId(id)
                 setActiveTaskStatus(null)
+                if (isMobile) setPane('detail')
               }}
               loading={loadingList}
               error={listError}
@@ -255,7 +280,7 @@ export default function Sessions() {
           flex: 1,
           minWidth: 0,
           minHeight: 0,
-          display: 'flex',
+          display: isMobile ? (pane === 'detail' ? 'flex' : 'none') : 'flex',
           flexDirection: 'column',
           gap: 12,
           alignItems: 'stretch',
@@ -297,6 +322,7 @@ export default function Sessions() {
             onSubmit={handlePromptSubmit}
             onStop={handleStop}
             promptDisabled={!selected}
+            onBack={isMobile ? () => setPane('list') : undefined}
           />
         )}
       </main>
