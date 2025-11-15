@@ -1,12 +1,16 @@
 import { useMemo, useState, useRef } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 
 // Components
 import { SessionSidebar, SessionDetail, useSessionSelection, filterSessionsByQuery, mapTopicInfoToSession, getWorkflowName } from '../features/sessions/public'
+import { SessionSidebar, SessionDetail, useSessionSelection, filterSessionsByQuery, mapTopicInfoToSession, getWorkflowName } from '../features/sessions/public'
 import { TaskModal } from '../features/tasks/public'
+import { AgentModal, useAgentModalController } from '../features/agents/public'
 import { AgentModal, useAgentModalController } from '../features/agents/public'
 import { SidebarNav } from '../features/sidebar/public'
 import { FileSystemSidebar } from '../features/filesystem/public'
+import { FileEditorModal, useFileEditorController } from '../features/fileviewer/public'
 import { FileEditorModal, useFileEditorController } from '../features/fileviewer/public'
 
 // Types
@@ -18,7 +22,6 @@ import { useTopicContextYoj } from '../features/yoj/public'
 import { useWorkflowExec, useDebouncedValue, useSessionPolling } from '../core/public'
 import { useTasksCounts, useSessionTasks } from '../features/tasks/public'
 import { usePlainify } from '../features/plain/public'
-import { useWorkspaceId, useProjectId } from '../features/workspace/public'
 import { useStickyScroll } from '../features/sessions/public'
 
 const mockSessions: Session[] = []
@@ -71,7 +74,32 @@ export default function Sessions() {
     userId: user?.uid,
     idToken,
   })
+  // Selection lifecycle encapsulated in feature hook
+  const { selectedId, setSelectedId, selected } = useSessionSelection({
+    sessions,
+    filtered,
+    userId: user?.uid,
+    idToken,
+  })
 
+  // Compute workflow name based on session and env
+  const workflowName = getWorkflowName(selected?.id)
+
+  // Resolve workspace (project/session scoped)
+  const projectId = useProjectId()
+  const { data: workspaceId } = useWorkspaceId({
+    projectId,
+    sessionId: selected?.id,
+    idToken,
+    enabled: !!selected?.id && !!projectId,
+  })
+
+  // Single shared workflow exec hook for this page
+  const { status: wfStatus, running: wfRunning, error: wfError, start: startWf, stop: stopWf } = useWorkflowExec({
+    sessionId: selected?.id,
+    idToken,
+    enabled: !!selected,
+  })
   // Compute workflow name based on session and env
   const workflowName = getWorkflowName(selected?.id)
 
@@ -129,6 +157,32 @@ export default function Sessions() {
     idToken,
     windowSeconds: 3600,
     enabled: !!selected && !activeTaskStatus,
+  })
+
+  // Wire event-driven refresh: on each event, refresh context and tasks
+  useEventsConsumer({
+    workspaceId: workspaceId || null,
+    projectId,
+    sessionId: selected?.id,
+    idToken,
+    scope: 'session',
+    enabled: !!workspaceId && !!selected?.id,
+    onEvent: () => {
+      if ((import.meta as any)?.env?.DEV) {
+        // eslint-disable-next-line no-console
+        console.debug('[Sessions] event → reload()', { sessionId: selected?.id, activeTaskStatus })
+      }
+      // Always refresh both context and tasks; hooks will ignore if disabled
+      reload()
+      reloadTasks()
+      reloadTaskCounts()
+    },
+    onError: (msg) => {
+      if ((import.meta as any)?.env?.DEV) {
+        // eslint-disable-next-line no-console
+        console.debug('[Sessions] SSE error', msg)
+      }
+    },
   })
 
   // Scroll container/anchor refs
@@ -195,9 +249,9 @@ export default function Sessions() {
     } catch {}
   }
 
-  // Encapsulated polling for messages/tasks and counts
+  // Disable timed polling; rely solely on event-driven refresh
   useSessionPolling({
-    enabled: !!selected?.id,
+    enabled: false,
     sessionId: selected?.id,
     activeTaskStatus,
     running: !!running,
@@ -207,6 +261,16 @@ export default function Sessions() {
     intervalMs: 1500,
   })
 
+  // Agent modal controller (encapsulated in features/agents)
+  const agent = useAgentModalController({
+    idToken,
+    sessionId: selected?.id || null,
+    workflowName: workflowName || null,
+    enabled: !!selected,
+  })
+
+  // File editor controller (encapsulated in features/fileviewer)
+  const fileEditor = useFileEditorController({ idToken, enabled: !!selected, sessionId: selected?.id || null })
   // Agent modal controller (encapsulated in features/agents)
   const agent = useAgentModalController({
     idToken,
@@ -343,6 +407,12 @@ export default function Sessions() {
       />
 
       <AgentModal
+        open={agent.open}
+        mode={agent.mode}
+        initial={agent.initial || { name: selected?.id || '', description: '', workflowName: workflowName || '', tools: [] }}
+        tools={agent.tools}
+        onClose={() => agent.setOpen(false)}
+        onSave={agent.onSave}
         open={agent.open}
         mode={agent.mode}
         initial={agent.initial || { name: selected?.id || '', description: '', workflowName: workflowName || '', tools: [] }}

@@ -6,13 +6,15 @@ export type PlainifyHelpers = { onItemDone?: (p: string) => void }
 export function usePlainify({
   sessionId,
   idToken,
-  enabled,
+  enabled: _enabled,
 }: {
   sessionId?: string | null
   idToken?: string | null
   enabled?: boolean
 }) {
-  const { start } = useWorkflowExec({ sessionId: sessionId || undefined, idToken, enabled: !!enabled && !!sessionId })
+  // We don't need status tracking or polling here; only use the start() API.
+  // Disable fetching/polling by setting enabled: false and pollMs: 0.
+  const { start } = useWorkflowExec({ sessionId: sessionId || undefined, idToken, enabled: false, pollMs: 0 })
 
   const [pendingCount, setPendingCount] = useState(0)
   const [errorCount, setErrorCount] = useState(0)
@@ -20,7 +22,7 @@ export function usePlainify({
 
   const plainify = useCallback(
     (paths: string[], helpers?: PlainifyHelpers) => {
-      if (!paths?.length) return
+      if (!paths?.length || !sessionId) return
       setPendingCount((prev) => prev + paths.length)
       for (const p of paths) {
         Promise.resolve()
@@ -37,7 +39,7 @@ export function usePlainify({
           })
       }
     },
-    [start]
+    [start, sessionId]
   )
 
   const dismissErrors = useCallback(() => {
