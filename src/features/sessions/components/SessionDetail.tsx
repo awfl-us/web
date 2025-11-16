@@ -15,6 +15,7 @@ export interface SessionDetailProps {
   onAddTask?: () => void
   onEditAgent?: () => void
   activeStatus: TaskStatus | null
+  onBack?: () => void
 
   // Items (messages/tasks)
   execError?: string | null
@@ -30,6 +31,7 @@ export interface SessionDetailProps {
   // Scrolling
   containerRef: Ref<HTMLDivElement | null>
   bottomRef?: Ref<HTMLDivElement | null>
+  topRef?: Ref<HTMLDivElement | null>
 
   // Identity for collapse state persistence
   sessionId?: string | null
@@ -55,6 +57,7 @@ export function SessionDetail(props: SessionDetailProps) {
     onAddTask,
     onEditAgent,
     activeStatus,
+    onBack,
     execError,
     wfError,
     running,
@@ -66,6 +69,7 @@ export function SessionDetail(props: SessionDetailProps) {
     onDeleteTask,
     containerRef,
     bottomRef,
+    topRef,
     sessionId,
     idToken,
     promptPlaceholder,
@@ -166,6 +170,7 @@ export function SessionDetail(props: SessionDetailProps) {
         onAddTask={onAddTask}
         onEditAgent={onEditAgent}
         avgUsdPerHourText={avgUsdPerHourText || undefined}
+        onBack={onBack}
       />
 
       {execError ? (
@@ -187,6 +192,7 @@ export function SessionDetail(props: SessionDetailProps) {
         execError={execError}
         containerRef={containerRef}
         bottomRef={bottomRef}
+        topRef={topRef}
         sessionId={sessionId || undefined}
         idToken={idToken || undefined}
       />

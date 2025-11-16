@@ -17,8 +17,9 @@ export function SessionHeader(props: {
   onAddTask?: () => void
   onEditAgent?: () => void
   avgUsdPerHourText?: string | null
+  onBack?: () => void
 }) {
-  const { title, updatedAt, counts, onTitleClick, onCountClick, activeStatus, onAddTask, onEditAgent, avgUsdPerHourText } = props
+  const { title, counts, onTitleClick, onCountClick, activeStatus, onAddTask, onEditAgent, avgUsdPerHourText, onBack } = props
 
   const Badge = ({
     label,
@@ -71,16 +72,32 @@ export function SessionHeader(props: {
     )
   }
 
-  const updatedDate = updatedAt
-    ? updatedAt instanceof Date
-      ? updatedAt
-      : new Date(updatedAt as any)
-    : null
-  const updatedText = updatedDate ? updatedDate.toLocaleString() : '-'
-
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+      {/* Left/top: back + title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        {onBack ? (
+          <button
+            className="mobile-back-button"
+            aria-label="Back"
+            onClick={onBack}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 28,
+              height: 28,
+              borderRadius: 999,
+              border: '1px solid #e5e7eb',
+              background: '#f9fafb',
+              cursor: 'pointer',
+              lineHeight: 1,
+              fontSize: 16,
+            }}
+          >
+            <span aria-hidden>{'<'}</span>
+          </button>
+        ) : null}
         <div
           onClick={onTitleClick}
           title={onTitleClick ? 'Back to messages' : undefined}
@@ -96,6 +113,10 @@ export function SessionHeader(props: {
         >
           {title}
         </div>
+      </div>
+
+      {/* Right/bottom: task counts + add task, $/hr, and edit agent icon */}
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
         {counts ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Badge label="Queued" count={counts.queued} bg="#e0f2fe" emoji="🕒" />
@@ -126,8 +147,7 @@ export function SessionHeader(props: {
             ) : null}
           </div>
         ) : null}
-      </div>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+
         {avgUsdPerHourText ? (
           <div
             title="Average cost rate over the loaded window"
@@ -144,23 +164,50 @@ export function SessionHeader(props: {
             {avgUsdPerHourText}
           </div>
         ) : null}
-        <div style={{ color: '#6b7280', fontSize: 12 }}>Updated {updatedText}</div>
+
         {onEditAgent ? (
           <button
             onClick={onEditAgent}
             title="Edit agent"
             aria-label="Edit agent"
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 24,
+              height: 24,
+              borderRadius: 999,
               border: '1px solid #e5e7eb',
               background: '#f9fafb',
-              borderRadius: 6,
-              padding: '4px 8px',
               cursor: 'pointer',
-              fontSize: 12,
-              color: '#111827',
+              lineHeight: 1,
+              padding: 0,
             }}
           >
-            Edit Agent
+            {/* gear icon */}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden
+            >
+              <path
+                d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z"
+                stroke="#111827"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M19.4 15a7.97 7.97 0 0 0 .1-1 7.97 7.97 0 0 0-.1-1l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.3 7.3 0 0 0-1.7-1l-.4-2.7a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.7c-.6.2-1.2.5-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 13a7.97 7.97 0 0 0-.1 1 7.97 7.97 0 0 0 .1 1l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5a.5.5 0 0 0 .6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7a.5.5 0 0 0 .5.4h4a.5.5 0 0 0 .5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1a.5.5 0 0 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 15z"
+                stroke="#111827"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         ) : null}
       </div>
