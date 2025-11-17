@@ -22,7 +22,8 @@ import { useScrollHome} from '../features/sessions/public'
 
 const mockSessions: Session[] = []
 
-export default function Sessions() {
+export default function Sessions(props: { projectId?: string | null } = {}) {
+  const { projectId = null } = props
   const { idToken, user } = useAuth()
   const [query, setQuery] = useState('')
   const [leftPanel, setLeftPanel] = useState<'sessions' | 'fs'>('sessions')
@@ -48,6 +49,7 @@ export default function Sessions() {
   const { sessions, loading: loadingList, error: listError } = useSessionsList({
     userId: user?.uid,
     idToken,
+    projectId,
     field: 'update_time',
     order: 'desc',
     start: 0,
@@ -78,6 +80,12 @@ export default function Sessions() {
     }
   }, [idToken, user?.uid, setSelectedId])
 
+  // When project changes, clear selection immediately to avoid stale details flashing
+  useEffect(() => {
+    // Only clear if a projectId is provided (we avoid clearing on first mount when prop is undefined)
+    if (projectId != null) setSelectedId(null)
+  }, [projectId, setSelectedId])
+
   // When a selection changes on mobile, switch to detail; when cleared, switch to list
   useEffect(() => {
     if (!isMobile) return
@@ -86,7 +94,7 @@ export default function Sessions() {
   }, [isMobile, selectedId])
 
   // Compute workflow name based on session and env
-  const workflowName = getWorkflowName(selected?.id)
+  const sessionWorkflowName = getWorkflowName(selected?.id)
 
   // Single shared workflow exec hook for this page
   const { status: wfStatus, running: wfRunning, error: wfError, start: startWf, stop: stopWf } = useWorkflowExec({
@@ -94,6 +102,17 @@ export default function Sessions() {
     idToken,
     enabled: !!selected,
   })
+
+  // Agent modal controller (encapsulated in features/agents)
+  const agent = useAgentModalController({
+    idToken,
+    sessionId: selected?.id || null,
+    workflowName: sessionWorkflowName || null,
+    enabled: !!selected,
+  })
+
+  // Effective workflow chosen from agent configuration, falling back to session-derived
+  const effectiveWorkflowName = agent.workflowName || sessionWorkflowName || null
 
   // Task counts for selected session
   const { counts: taskCounts, reload: reloadTaskCounts } = useTasksCounts({
@@ -121,7 +140,7 @@ export default function Sessions() {
   } = useSessionTasks({
     sessionId: selected?.id,
     idToken,
-    workflowName,
+    workflowName: effectiveWorkflowName || undefined,
     startWf,
     enabled: !!selected,
     reloadTaskCounts,
@@ -171,10 +190,10 @@ export default function Sessions() {
   const [submitting, setSubmitting] = useState(false)
 
   async function handlePromptSubmit(text: string) {
-    if (!workflowName) return
+    if (!effectiveWorkflowName) return
     try {
       setSubmitting(true)
-      await startWf(workflowName, { query: text })
+      await startWf(effectiveWorkflowName, { query: text })
     } finally {
       setSubmitting(false)
     }
@@ -182,7 +201,7 @@ export default function Sessions() {
 
   async function handleStop() {
     try {
-      await stopWf({ includeDescendants: true, workflow: workflowName || undefined })
+      await stopWf({ includeDescendants: true, workflow: effectiveWorkflowName || undefined })
     } catch {}
   }
 
@@ -196,14 +215,6 @@ export default function Sessions() {
     reloadTaskCounts,
     reloadInlineTasks: reloadTasks,
     intervalMs: 1500,
-  })
-
-  // Agent modal controller (encapsulated in features/agents)
-  const agent = useAgentModalController({
-    idToken,
-    sessionId: selected?.id || null,
-    workflowName: workflowName || null,
-    enabled: !!selected,
   })
 
   // File editor controller (encapsulated in features/fileviewer)
@@ -315,7 +326,7 @@ export default function Sessions() {
             // Identity for collapse state persistence
             sessionId={selected.id}
             idToken={idToken}
-            promptPlaceholder={workflowName ? `Trigger workflow ${workflowName}…` : 'Select a session to trigger workflow'}
+            promptPlaceholder={effectiveWorkflowName ? `Trigger workflow ${effectiveWorkflowName}…` : 'Select a session to trigger workflow'}
             wfStatus={wfStatus}
             wfRunning={wfRunning}
             submitting={submitting}
@@ -338,8 +349,10 @@ export default function Sessions() {
       <AgentModal
         open={agent.open}
         mode={agent.mode}
-        initial={agent.initial || { name: selected?.id || '', description: '', workflowName: workflowName || '', tools: [] }}
+        initial={agent.initial || { name: selected?.id || '', description: '', workflowName: sessionWorkflowName || '', tools: [] }}
         tools={agent.tools}
+        workflows={agent.workflows}
+        workflowsLoading={agent.workflowsLoading}
         onClose={() => agent.setOpen(false)}
         onSave={agent.onSave}
       />

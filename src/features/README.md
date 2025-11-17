@@ -102,6 +102,14 @@ tools
   - src/hooks/useAgentsApi.ts: type ToolItem
   - src/types/public.ts: re-exports type ToolItem
 
+workflows
+- Exports
+  - Hooks: useWorkflowsList
+  - Components: WorkflowSelector (and props)
+- Used in
+  - src/features/agents/AgentModal.tsx: WorkflowSelector
+  - src/features/agents/hooks/useAgentModalController.ts: useWorkflowsList
+
 yoj
 - Exports
   - Hooks: useTopicContextYoj

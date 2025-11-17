@@ -4,8 +4,8 @@ import type { ToolItem } from './types'
 
 function uuidv4() {
   try {
-    // @ts-ignore
-    if (typeof crypto !== 'undefined' && crypto?.randomUUID) return crypto.randomUUID()
+    const c: any = (globalThis as any)?.crypto
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID()
   } catch {}
   // Fallback simple UUID v4 generator
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {

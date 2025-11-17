@@ -5,6 +5,8 @@ import { makeApiClient } from '../../../api/apiClient'
 export type UseSessionsListParams = {
   userId?: string | null
   idToken?: string | null
+  // Optional: current project id. Used only to trigger refetch when it changes.
+  projectId?: string | null
   collection?: string
   field?: string
   order?: 'asc' | 'desc'
@@ -27,6 +29,7 @@ export function useSessionsList(params: UseSessionsListParams): UseSessionsListR
   const {
     userId,
     idToken,
+    projectId,
     collection = 'convo.sessions',
     field = 'update_time',
     order = 'desc',
@@ -60,7 +63,10 @@ export function useSessionsList(params: UseSessionsListParams): UseSessionsListR
         return
       }
 
+      // When projectId changes, immediately show loading and avoid flashing stale sessions
       setLoading(true)
+      // Optionally clear sessions to prevent stale list flashes during project switches
+      if (projectId != null) setSessions([])
       try {
         const client = makeApiClient({ idToken: idToken ?? undefined, skipAuth })
         const body: any = { collection, field, order, start, end }
@@ -104,7 +110,7 @@ export function useSessionsList(params: UseSessionsListParams): UseSessionsListR
       cancelled = true
       ac.abort()
     }
-  }, [userId, idToken, collection, field, order, start, end, limit, fieldType, enabled, mapDocToSession, bump.current])
+  }, [userId, idToken, projectId, collection, field, order, start, end, limit, fieldType, enabled, mapDocToSession, bump.current])
 
   return { sessions, loading, error, reload }
 }

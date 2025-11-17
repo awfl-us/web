@@ -56,7 +56,7 @@ export function useSessionPolling({
       const isRunning = runningRef.current
       if (!isRunning) {
         if ((import.meta as any)?.env?.DEV) {
-          // eslint-disable-next-line no-console
+           
           console.debug('[Sessions] poll tick → reload()', {
             sessionId,
             activeTaskStatus: activeStatusRef.current,
@@ -69,7 +69,7 @@ export function useSessionPolling({
         }
         reloadTaskCountsRef.current()
       } else if ((import.meta as any)?.env?.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.debug('[Sessions] poll tick skipped (running)', { sessionId })
       }
     }, intervalMs)

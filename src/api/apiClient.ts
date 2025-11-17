@@ -38,6 +38,14 @@ export function makeApiClient(opts: ApiClientOptions) {
       return await postJson('/workflows/exec/tree', body || {}, opts, ropts)
     },
 
+    // Workflows service under /workflows
+    async listWorkflows(params?: { location?: string | null }, ropts?: RequestOptions) {
+      const q = new URLSearchParams()
+      if (params?.location) q.set('location', params.location)
+      const qs = q.toString() ? `?${q.toString()}` : ''
+      return await getJson(`/workflows/list${qs}`, opts, ropts)
+    },
+
     // Projects service under /workflows/projects
     async projectsList(params?: { limit?: number; order?: 'asc' | 'desc' }, ropts?: RequestOptions) {
       const q = new URLSearchParams()

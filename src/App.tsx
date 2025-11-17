@@ -292,7 +292,7 @@ function App() {
           <div style={{ color: '#6b7280', padding: 16 }}>Loading auth…</div>
         ) : user ? (
           route === 'sessions' ? (
-            <Sessions />
+            <Sessions projectId={projectId || null} />
           ) : route === 'tasks' ? (
             <Tasks />
           ) : route === 'integrations-github' ? (
