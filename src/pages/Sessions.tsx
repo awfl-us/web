@@ -1,10 +1,19 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 
-// Components
-import { SessionSidebar, SessionDetail, useSessionSelection, filterSessionsByQuery, mapTopicInfoToSession, getWorkflowName } from '../features/sessions/public'
+// Components & hooks from features
+import {
+  SessionSidebar,
+  SessionDetail,
+  useSessionSelection,
+  filterSessionsByQuery,
+  mapTopicInfoToSession,
+  getWorkflowName,
+  NewSessionModal,
+  useNewSessionAgents,
+} from '../features/sessions/public'
 import { TaskModal } from '../features/tasks/public'
-import { AgentModal, useAgentModalController, useSessionAgentConfig } from '../features/agents/public'
+import { AgentModal, useAgentModalController, useSessionAgentConfig, useAgentsApi } from '../features/agents/public'
 import { SidebarNav } from '../features/sidebar/public'
 import { FileSystemSidebar } from '../features/filesystem/public'
 import { FileEditorModal, useFileEditorController } from '../features/fileviewer/public'
@@ -27,6 +36,11 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const { idToken, user } = useAuth()
   const [query, setQuery] = useState('')
   const [leftPanel, setLeftPanel] = useState<'sessions' | 'fs'>('sessions')
+
+  // New Session modal state
+  const [newOpen, setNewOpen] = useState(false)
+  const { agents: newAgents, loading: newAgentsLoading, error: newAgentsError } = useNewSessionAgents({ idToken, enabled: newOpen })
+  const agentsApi = useAgentsApi({ idToken })
 
   // Mobile detection and pane state
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia('(max-width: 640px)').matches : false)
@@ -57,17 +71,34 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     mapDocToSession: mapTopicInfoToSession,
   })
 
+  // Ephemeral (local) sessions created via modal; cleared on auth/project change
+  const [ephemeralSessions, setEphemeralSessions] = useState<Session[]>([])
+
+  // Clear ephemeral sessions when user changes or project changes
+  useEffect(() => {
+    setEphemeralSessions([])
+  }, [user?.uid])
+  useEffect(() => {
+    if (projectId != null) setEphemeralSessions([])
+  }, [projectId])
+
   // Debounce query to reduce recomputation during fast typing
   const debouncedQuery = useDebouncedValue(query, 200)
 
-  const sourceSessions = sessions.length ? sessions : mockSessions
+  // Combine ephemeral + server sessions (dedupe by id; server overrides; ephemeral-only at top)
+  const combinedSessions = useMemo<Session[]>(() => {
+    if (!sessions?.length && !ephemeralSessions.length) return mockSessions
+    const serverIds = new Set((sessions || []).map(s => s.id))
+    const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
+    return [...ephemeralOnly, ...(sessions || [])]
+  }, [sessions, ephemeralSessions])
 
   // Filter sessions using shared helper
-  const filtered = useMemo(() => filterSessionsByQuery(sourceSessions, debouncedQuery), [sourceSessions, debouncedQuery])
+  const filtered = useMemo(() => filterSessionsByQuery(combinedSessions, debouncedQuery), [combinedSessions, debouncedQuery])
 
   // Selection lifecycle encapsulated in feature hook
   const { selectedId, setSelectedId, selected } = useSessionSelection({
-    sessions,
+    sessions: combinedSessions,
     filtered,
     userId: user?.uid,
     idToken,
@@ -223,6 +254,52 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // File editor controller (encapsulated in features/fileviewer)
   const fileEditor = useFileEditorController({ idToken, enabled: !!selected, sessionId: selected?.id || null })
 
+  // Handlers: create new session
+  function generateUuid() {
+    try {
+      // modern browsers
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const g = (globalThis as any).crypto?.randomUUID
+      if (typeof g === 'function') return g()
+    } catch {}
+    // fallback
+    const s: string[] = []
+    const hex = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+    for (let i = 0; i < hex.length; i++) {
+      const c = hex[i]
+      if (c === 'x' || c === 'y') {
+        const r = Math.random() * 16 | 0
+        const v = c === 'x' ? r : (r & 0x3) | 0x8
+        s.push(v.toString(16))
+      } else {
+        s.push(c)
+      }
+    }
+    return s.join('')
+  }
+
+  async function handleCreateNewSession(agentId: string | null) {
+    const id = generateUuid()
+    // Insert ephemeral session so it appears immediately in the sidebar
+    const nowIso = new Date().toISOString()
+    setEphemeralSessions(prev => [{ id, title: 'New session', updatedAt: nowIso }, ...prev])
+
+    setSelectedId(id)
+    setActiveTaskStatus(null)
+    setNewOpen(false)
+    if (isMobile) setPane('detail')
+    if (agentId) {
+      try {
+        await agentsApi.linkSessionAgent(id, agentId)
+        // Ensure latest agent config is read when this id becomes active later
+        if (selected?.id === id) await agentConfig.reload()
+      } catch (e) {
+        // soft-fail
+        console.warn('Failed to link agent to new session', e)
+      }
+    }
+  }
+
   return (
     <div
       style={{
@@ -274,6 +351,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
               error={listError}
               query={query}
               onQueryChange={setQuery}
+              onCreateNew={() => setNewOpen(true)}
             />
           ) : (
             <FileSystemSidebar
@@ -371,6 +449,15 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         load={fileEditor.load}
         onSave={fileEditor.save}
         readOnly={false}
+      />
+
+      <NewSessionModal
+        open={newOpen}
+        agents={newAgents}
+        agentsLoading={newAgentsLoading}
+        agentsError={newAgentsError}
+        onClose={() => setNewOpen(false)}
+        onCreate={handleCreateNewSession}
       />
     </div>
   )
