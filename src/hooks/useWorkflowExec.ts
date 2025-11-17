@@ -25,10 +25,18 @@ export type UseWorkflowExecResult = {
   stop: (opts?: { includeDescendants?: boolean; workflows?: string[]; workflow?: string }) => Promise<void>
 }
 
+function normalizeStatus(s?: string | null): string | null {
+  if (!s) return null
+  const u = String(s).trim()
+  if (!u) return null
+  return u.charAt(0).toUpperCase() + u.slice(1).toLowerCase()
+}
+
 export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecResult {
   const { sessionId, idToken, enabled = true, pollMs = 8000 } = params
 
   const [latest, setLatest] = useState<LatestExecItem | null>(null)
+  const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [, setLoading] = useState(false)
   const bump = useRef(0)
@@ -41,6 +49,16 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
 
   const client = useMemo(() => makeApiClient({ idToken: idToken ?? undefined, skipAuth }), [idToken, skipAuth])
 
+  // Reset only on identity/enable changes
+  useEffect(() => {
+    // When the selected session or enabled flag changes, clear preserved states
+    if (!enabled || !sessionId) {
+      setLatest(null)
+      setStatus(null)
+      setError(null)
+    }
+  }, [sessionId, enabled])
+
   useEffect(() => {
     let cancelled = false
     const ac = new AbortController()
@@ -48,19 +66,27 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
     async function fetchLatest() {
       setError(null)
       if (!enabled || !sessionId || (!idToken && !skipAuth)) {
-        setLatest(null)
+        // Do not fetch when disabled; reset is handled by the sessionId/enabled effect
         return
       }
       setLoading(true)
       try {
         const json: any = await client.workflowsStatusLatest(sessionId, 1, { signal: ac.signal })
         const item = Array.isArray(json?.items) && json.items.length > 0 ? json.items[0] : null
-        if (!cancelled) setLatest(item)
+        if (cancelled) return
+        if (item) {
+          // Update latest when we have an item
+          setLatest(item)
+          // Update status only when defined & non-empty
+          const ns = normalizeStatus(item.status)
+          if (ns) setStatus(ns)
+        } else {
+          // No items returned: preserve prior latest/status to avoid UI flicker
+        }
       } catch (e: any) {
-        // 404 is expected when none exist
+        // 404 or transient errors: surface error but preserve last known latest/status
         const msg = e?.message || String(e)
         if (!cancelled) setError(msg)
-        if (!cancelled) setLatest(null)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -83,16 +109,7 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
     return () => clearInterval(t)
   }, [enabled, sessionId, pollMs, reload])
 
-  const normalizedStatus = useMemo(() => {
-    const s = latest?.status
-    if (!s) return null
-    // Normalize states like RUNNING/Running/running
-    const u = String(s).trim()
-    if (!u) return null
-    return u.charAt(0).toUpperCase() + u.slice(1).toLowerCase()
-  }, [latest?.status])
-
-  const running = normalizedStatus === 'Running'
+  const running = status === 'Running'
 
   const start = useCallback(
     async (workflowName: string, params?: Record<string, any>) => {
@@ -140,5 +157,5 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
     [client, latest?.execId, reload]
   )
 
-  return { latest, status: normalizedStatus, running, error, reload, start, stop }
+  return { latest, status, running, error, reload, start, stop }
 }
