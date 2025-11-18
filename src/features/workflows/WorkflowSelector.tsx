@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkflowSelectorProps } from './types'
 
 function groupByDash(names: string[]): Array<{ group: string; items: string[] }> {
@@ -19,6 +19,7 @@ function groupByDash(names: string[]): Array<{ group: string; items: string[] }>
 export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Select a workflow…', disabled, loading, style }: WorkflowSelectorProps) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -28,8 +29,21 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
 
   const groups = useMemo(() => groupByDash(filtered), [filtered])
 
+  useEffect(() => {
+    function handleDocClick(e: MouseEvent) {
+      if (!open) return
+      const el = containerRef.current
+      if (!el) return
+      const target = e.target as Node | null
+      if (target && el.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handleDocClick)
+    return () => document.removeEventListener('mousedown', handleDocClick)
+  }, [open])
+
   return (
-    <div style={{ display: 'grid', gap: 6, position: 'relative', ...style }}>
+    <div ref={containerRef} style={{ display: 'grid', gap: 6, position: 'relative', ...style }}>
       <input
         type="text"
         value={value || ''}
@@ -51,6 +65,7 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Filter…"
         disabled={disabled}
+        onFocus={() => setOpen(true)}
         style={{
           border: '1px solid #e5e7eb',
           borderRadius: 6,
@@ -75,7 +90,6 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
             overflow: 'auto',
             boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
           }}
-          onMouseLeave={() => setOpen(false)}
         >
           {loading ? (
             <div style={{ padding: 8, color: '#6b7280' }}>Loading workflows…</div>

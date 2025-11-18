@@ -17,6 +17,7 @@ import { AgentModal, useAgentModalController, useSessionAgentConfig, useAgentsAp
 import { SidebarNav } from '../features/sidebar/public'
 import { FileSystemSidebar } from '../features/filesystem/public'
 import { FileEditorModal, useFileEditorController } from '../features/fileviewer/public'
+import { useWorkflowsList } from '../features/workflows/public'
 
 // Types
 import type { Session } from '../features/sessions/public'
@@ -40,6 +41,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // New Session modal state
   const [newOpen, setNewOpen] = useState(false)
   const { agents: newAgents, loading: newAgentsLoading, error: newAgentsError } = useNewSessionAgents({ idToken, enabled: newOpen })
+  const { workflows, loading: workflowsLoading, error: workflowsError } = useWorkflowsList({ idToken, enabled: newOpen })
   const agentsApi = useAgentsApi({ idToken })
 
   // Mobile detection and pane state
@@ -197,7 +199,6 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // Reusable auto-scroll behavior with "home" detection:
   const home: 'top' | 'bottom' = activeTaskStatus ? 'top' : 'bottom'
   const itemCount = activeTaskStatus ? (sessionTasks?.length || 0) : (messages?.length || 0)
-
   const viewKey = `${selected?.id || 'none'}:${activeTaskStatus ? `tasks:${activeTaskStatus}` : 'messages'}`
 
   useScrollHome({
@@ -278,27 +279,57 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     return s.join('')
   }
 
-  async function handleCreateNewSession(agentId: string | null) {
+  type NewSessionCreateInput = { agentId?: string | null; workflowName?: string | null }
+
+  async function handleCreateNewSession(input: NewSessionCreateInput) {
+    const { agentId, workflowName } = input || {}
     const id = generateUuid()
     // Insert ephemeral session so it appears immediately in the sidebar
     const nowIso = new Date().toISOString()
-    setEphemeralSessions(prev => [{ id, title: 'New session', updatedAt: nowIso }, ...prev])
+    // Default title to sessionId (id)
+    setEphemeralSessions(prev => [{ id, title: id, updatedAt: nowIso }, ...prev])
 
     setSelectedId(id)
     setActiveTaskStatus(null)
     setNewOpen(false)
     if (isMobile) setPane('detail')
-    if (agentId) {
-      try {
+
+    try {
+      // Prefer linking to an existing agent if explicitly selected
+      if (agentId) {
         await agentsApi.linkSessionAgent(id, agentId)
-        // Ensure latest agent config is read when this id becomes active later
         if (selected?.id === id) await agentConfig.reload()
-      } catch (e) {
-        // soft-fail
-        console.warn('Failed to link agent to new session', e)
+        return
       }
+
+      // If a workflow is selected, create a new agent (name autofilled from workflow) and link
+      if (workflowName) {
+        // Load default tools to persist with the newly created agent (backend does not add them automatically)
+        let defaultTools: string[] = []
+        try {
+          // some implementations use a sentinel name like 'default' to fetch the base toolset
+          defaultTools = await agentsApi.listAgentTools('default')
+        } catch {
+          defaultTools = []
+        }
+        const newAgent = await agentsApi.saveAgent({ name: workflowName, description: '', workflowName, tools: defaultTools })
+        if (newAgent?.id) {
+          await agentsApi.linkSessionAgent(id, newAgent.id)
+          if (selected?.id === id) await agentConfig.reload()
+        }
+      }
+    } catch (e) {
+      // soft-fail
+      console.warn('Failed to set up agent for new session', e)
     }
   }
+
+  // Defaults for New Session modal: match newest session's agent/workflow
+  const newestSession = combinedSessions[0] || null
+  const newestConfig = useSessionAgentConfig({ idToken, sessionId: newestSession?.id || null, enabled: newOpen && !!newestSession?.id })
+  const newestDerivedWorkflowName = newestSession ? getWorkflowName(newestSession.id) : null
+  const defaultWorkflowForNew = newestConfig.workflowName || newestDerivedWorkflowName || null
+  const defaultAgentForNew = newestConfig.agent?.name || null
 
   return (
     <div
@@ -430,7 +461,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
       <AgentModal
         open={agent.open}
         mode={agent.mode}
-        initial={agent.initial || { name: selected?.id || '', description: '', workflowName: sessionWorkflowName || '', tools: [] }}
+        initial={agent.initial || { name: agentConfig.workflowName || sessionWorkflowName || '', description: '', workflowName: sessionWorkflowName || '', tools: [] }}
         tools={agent.tools}
         workflows={agent.workflows}
         workflowsLoading={agent.workflowsLoading}
@@ -456,6 +487,11 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         agents={newAgents}
         agentsLoading={newAgentsLoading}
         agentsError={newAgentsError}
+        workflows={workflows}
+        workflowsLoading={workflowsLoading}
+        workflowsError={workflowsError}
+        defaultAgentName={defaultAgentForNew}
+        defaultWorkflowName={defaultWorkflowForNew}
         onClose={() => setNewOpen(false)}
         onCreate={handleCreateNewSession}
       />

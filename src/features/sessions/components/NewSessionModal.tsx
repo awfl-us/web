@@ -1,26 +1,58 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { WorkflowSelector } from '../../workflows/public'
 
 export type NewSessionAgent = { id: string; name: string }
+
+export type NewSessionCreateInput = {
+  agentId?: string | null
+  workflowName?: string | null
+}
 
 export type NewSessionModalProps = {
   open: boolean
   agents: NewSessionAgent[]
   agentsLoading?: boolean
   agentsError?: string | null
+  workflows?: string[]
+  workflowsLoading?: boolean
+  workflowsError?: string | null
+  defaultAgentName?: string | null
+  defaultWorkflowName?: string | null
   onClose: () => void
-  onCreate: (agentId: string | null) => void
+  onCreate: (input: NewSessionCreateInput) => void
 }
 
 export function NewSessionModal(props: NewSessionModalProps) {
-  const { open, agents, agentsLoading = false, agentsError = null, onClose, onCreate } = props
+  const {
+    open,
+    agents,
+    agentsLoading = false,
+    agentsError = null,
+    workflows = [],
+    workflowsLoading = false,
+    workflowsError = null,
+    defaultAgentName = null,
+    defaultWorkflowName = null,
+    onClose,
+    onCreate,
+  } = props
+
+  const defaultAgentId = useMemo(() => {
+    if (!defaultAgentName) return 'none' as const
+    const match = agents.find(a => a.name === defaultAgentName)
+    return (match?.id || 'none') as const
+  }, [agents, defaultAgentName])
+
   const [agentId, setAgentId] = useState<string | 'none'>('none')
+  const [workflowName, setWorkflowName] = useState<string | ''>('')
 
   useEffect(() => {
     if (!open) return
-    // Default to none on open
-    setAgentId('none')
-  }, [open])
+    // Default on open to newest-session-aligned selections when provided
+    setAgentId(defaultAgentId)
+    setWorkflowName(defaultWorkflowName || '')
+  }, [open, defaultAgentId, defaultWorkflowName])
 
   if (!open) return null
 
@@ -34,7 +66,7 @@ export function NewSessionModal(props: NewSessionModalProps) {
     zIndex: 50,
   }
   const modalStyle: CSSProperties = {
-    width: 'min(480px, 92vw)',
+    width: 'min(520px, 92vw)',
     background: '#fff',
     borderRadius: 10,
     border: '1px solid #e5e7eb',
@@ -42,7 +74,8 @@ export function NewSessionModal(props: NewSessionModalProps) {
     padding: 16,
   }
 
-  const disableCreate = agentsLoading
+  // Only disable create if the user chose a path that depends on still-loading data
+  const disableCreate = (agentsLoading && agentId !== 'none') || (workflowsLoading && !!workflowName)
 
   return (
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="Create new session">
@@ -59,10 +92,10 @@ export function NewSessionModal(props: NewSessionModalProps) {
         </div>
 
         <div style={{ display: 'grid', gap: 12 }}>
-          <p style={{ margin: 0, color: '#6b7280' }}>Optionally choose an agent to link to this session.</p>
+          <p style={{ margin: 0, color: '#6b7280' }}>Choose an existing agent or create a new one from a workflow.</p>
 
           <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#374151' }}>Agent</span>
+            <span style={{ fontSize: 12, color: '#374151' }}>Existing agent</span>
             <select
               value={agentId}
               onChange={(e) => setAgentId(e.target.value as any)}
@@ -84,6 +117,32 @@ export function NewSessionModal(props: NewSessionModalProps) {
               Failed to load agents: {agentsError}
             </div>
           )}
+
+          <div style={{ height: 1, background: '#e5e7eb', margin: '6px 0' }} />
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontSize: 12, color: '#374151' }}>Or create new agent via workflow</span>
+            <WorkflowSelector
+              workflows={workflows}
+              value={workflowName || null}
+              onChange={(name) => {
+                // If user selects a workflow, clear any existing agent selection
+                setAgentId('none')
+                setWorkflowName(name)
+              }}
+              placeholder={workflowsLoading ? 'Loading workflows…' : 'Select a workflow (optional)'}
+              // Do not disable while loading; show loading message inside the dropdown instead
+              disabled={false}
+              loading={workflowsLoading}
+              style={{ width: '100%' }}
+            />
+          </label>
+
+          {!!workflowsError && (
+            <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', padding: 8, borderRadius: 6 }}>
+              Failed to load workflows: {workflowsError}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
@@ -94,7 +153,7 @@ export function NewSessionModal(props: NewSessionModalProps) {
             Cancel
           </button>
           <button
-            onClick={() => onCreate(agentId === 'none' ? null : agentId)}
+            onClick={() => onCreate({ agentId: agentId === 'none' ? null : agentId, workflowName: workflowName || null })}
             disabled={disableCreate}
             style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #2563eb', background: '#2563eb', color: '#fff', cursor: disableCreate ? 'not-allowed' : 'pointer' }}
           >
