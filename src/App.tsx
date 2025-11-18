@@ -4,8 +4,7 @@ import Sessions from './pages/Sessions'
 import Tasks from './pages/Tasks'
 import IntegrationsGitHub from './pages/IntegrationsGitHub'
 import { useAuth } from './auth/AuthProvider'
-import { getCookie, setCookie } from './utils/cookies'
-import { useProjectsList } from './features/projects/public'
+import { useProjectsList, getSelectedProjectId, setSelectedProjectId } from './features/projects/public'
 import { SettingsPage, useCredsApi } from './features/settings/public'
 import { InstructionsOverview } from './features/instructions/public'
 import { ConsumerStatusPill } from './features/consumers/public'
@@ -24,16 +23,11 @@ function App() {
   const [route, setRoute] = useState<Route>('home')
   const { user, loading, signIn, signOut, idToken } = useAuth() as any
 
-  // GitHub project selection (header dropdown)
-  const [projectId, setProjectId] = useState<string>(getCookie('awfl.projectId') || '')
+  // GitHub project selection (header dropdown) — tab-specific via sessionStorage, fallback to cookie
+  const [projectId, setProjectId] = useState<string>(getSelectedProjectId() || '')
 
   // Load projects from API (encapsulated in features/projects)
   const { projects, loading: loadingProjects } = useProjectsList({ idToken, enabled: true })
-
-  // Ensure cookie is applied on mount if present
-  useEffect(() => {
-    if (projectId) setCookie('awfl.projectId', projectId)
-  }, [])
 
   function handleProjectSelect(e: ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value
@@ -43,7 +37,7 @@ function App() {
       return
     }
     setProjectId(next)
-    if (next) setCookie('awfl.projectId', next)
+    setSelectedProjectId(next)
   }
 
   const AuthControls = () => {
