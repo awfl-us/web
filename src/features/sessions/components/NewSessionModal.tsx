@@ -38,10 +38,10 @@ export function NewSessionModal(props: NewSessionModalProps) {
     onCreate,
   } = props
 
-  const defaultAgentId = useMemo(() => {
-    if (!defaultAgentName) return 'none' as const
+  const defaultAgentId = useMemo<'none' | string>(() => {
+    if (!defaultAgentName) return 'none'
     const match = agents.find(a => a.name === defaultAgentName)
-    return (match?.id || 'none') as const
+    return match?.id ?? 'none'
   }, [agents, defaultAgentName])
 
   const [agentId, setAgentId] = useState<string | 'none'>('none')

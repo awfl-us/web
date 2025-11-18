@@ -20,6 +20,8 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const valueInputRef = useRef<HTMLInputElement | null>(null)
+  const filterInputRef = useRef<HTMLInputElement | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -29,8 +31,9 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
 
   const groups = useMemo(() => groupByDash(filtered), [filtered])
 
+  // Close on outside mousedown
   useEffect(() => {
-    function handleDocClick(e: MouseEvent) {
+    function handleDocMouseDown(e: MouseEvent) {
       if (!open) return
       const el = containerRef.current
       if (!el) return
@@ -38,17 +41,37 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
       if (target && el.contains(target)) return
       setOpen(false)
     }
-    document.addEventListener('mousedown', handleDocClick)
-    return () => document.removeEventListener('mousedown', handleDocClick)
+    document.addEventListener('mousedown', handleDocMouseDown)
+    return () => document.removeEventListener('mousedown', handleDocMouseDown)
   }, [open])
+
+  function commitSelection(name: string) {
+    onChange(name)
+    setOpen(false)
+    setQuery('')
+  }
 
   return (
     <div ref={containerRef} style={{ display: 'grid', gap: 6, position: 'relative', ...style }}>
       <input
+        ref={valueInputRef}
         type="text"
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setOpen(false)
+            return
+          }
+          if (e.key === 'Enter') {
+            const v = (e.currentTarget.value || '').trim()
+            if (v && workflows.includes(v)) {
+              e.preventDefault()
+              commitSelection(v)
+            }
+          }
+        }}
         placeholder={placeholder}
         disabled={disabled}
         style={{
@@ -60,12 +83,25 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
         }}
       />
       <input
+        ref={filterInputRef}
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Filter…"
         disabled={disabled}
         onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setOpen(false)
+            return
+          }
+          if (e.key === 'Enter') {
+            if (filtered.length > 0) {
+              e.preventDefault()
+              commitSelection(filtered[0])
+            }
+          }
+        }}
         style={{
           border: '1px solid #e5e7eb',
           borderRadius: 6,
@@ -103,10 +139,10 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
                   {g.items.map(name => (
                     <button
                       key={name}
-                      onClick={() => {
-                        onChange(name)
-                        setOpen(false)
-                        setQuery('')
+                      onMouseDown={(e) => {
+                        // Commit on mousedown to avoid focus transfer to the item and prevent re-open
+                        e.preventDefault()
+                        commitSelection(name)
                       }}
                       style={{
                         textAlign: 'left',
