@@ -76,8 +76,8 @@ function renderNestedBranch(args: {
   )
 }
 
-export function YojMessageList(props: { messages: YojMessage[]; sessionId?: string; idToken?: string }) {
-  const { messages, sessionId, idToken } = props
+export function YojMessageList(props: { messages: YojMessage[]; sessionId?: string; idToken?: string; assistantName?: string; hideExecGutter?: boolean }) {
+  const { messages, sessionId, idToken, assistantName, hideExecGutter } = props
 
   // Dynamic lane allocation: only concurrent branches occupy multiple lanes;
   // when a branch ends, its lane is freed and reused by later branches.
@@ -122,7 +122,9 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
 
           return (
             <div key={key} style={{ display: 'flex', alignItems: 'stretch', gap: 8, width: '100%' }}>
-              <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} />
+              {!hideExecGutter ? (
+                <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} />
+              ) : null}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <CollapsedGroupCard
                   sessionId={sessionId}
@@ -223,9 +225,13 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         if (costString) metaParts.push(costString)
         const metaText = metaParts.join(' · ')
 
+        const assistantLabel = assistantName?.trim().length ? assistantName : 'Assistant'
+
         return (
           <div key={key} style={{ display: 'flex', alignItems: 'stretch', gap: 8, width: '100%' }}>
-            <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} />
+            {!hideExecGutter ? (
+              <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} />
+            ) : null}
             <div
               style={{
                 background: bg,
@@ -240,7 +246,7 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: labelColor, marginBottom: 6 }}>{role.toUpperCase()}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: labelColor, marginBottom: 6 }}>{role === 'assistant' ? assistantLabel : role.toUpperCase()}</div>
 
               <Collapsible>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, maxWidth: '100%' }}>

@@ -78,7 +78,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const debouncedQuery = useDebouncedValue(query, 200)
 
   // Selection lifecycle encapsulated in feature hook
-  const { selectedId, setSelectedId, selected } = useSessionSelection({
+  const { selectedId, setSelectedId } = useSessionSelection({
     sessions: sessions || mockSessions,
     filtered: sessions || mockSessions,
     userId: user?.uid,
@@ -184,6 +184,9 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
 
   // Effective workflow chosen from agent configuration, falling back to session-derived
   const effectiveWorkflowName = agentConfig.workflowName || sessionWorkflowName || null
+
+  // Assistant label: prefer configured agent name; fallback to "Assistant"
+  const assistantName = (agentConfig.agent?.name?.trim?.() || '').trim() || 'Assistant'
 
   // Task counts for selected session
   const { counts: taskCounts, reload: reloadTaskCounts } = useTasksCounts({
@@ -412,6 +415,8 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             onStop={handleStop}
             promptDisabled={!sel}
             onBack={isMobile ? () => setPane('list') : undefined}
+            assistantName={assistantName}
+            hideExecGutter={isMobile}
           />
         )}
       </main>

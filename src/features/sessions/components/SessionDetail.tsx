@@ -27,6 +27,8 @@ export interface SessionDetailProps {
   sessionTasks?: TaskRecord[]
   onEditTask: (t: TaskRecord) => void
   onDeleteTask: (t: TaskRecord) => void
+  assistantName?: string
+  hideExecGutter?: boolean
 
   // Scrolling
   containerRef: Ref<HTMLDivElement | null>
@@ -67,6 +69,8 @@ export function SessionDetail(props: SessionDetailProps) {
     sessionTasks,
     onEditTask,
     onDeleteTask,
+    assistantName,
+    hideExecGutter,
     containerRef,
     bottomRef,
     topRef,
@@ -190,6 +194,8 @@ export function SessionDetail(props: SessionDetailProps) {
         messages={messages}
         running={running}
         execError={execError}
+        assistantName={assistantName}
+        hideExecGutter={hideExecGutter}
         containerRef={containerRef}
         bottomRef={bottomRef}
         topRef={topRef}
