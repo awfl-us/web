@@ -129,14 +129,30 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
       setError(null)
       // Prefer agentId provided via ctx, else from hook param, else from params
       const aId = ctx?.agentId || hookAgentId || (params as any)?.agentId
-      // Fire-and-forget the execute call so callers (e.g., Submit button) don't block on the response body.
-      // Any errors will be captured into this hook's error state.
-      const modelValue = params?.model ?? 'gpt-5'
-      const fundValue = params?.fund ?? 1
+
+      // Defensively normalize params: require query and drop unsupported fields like `reason`
+      const rawParams = { ...(params || {}) }
+      if ('reason' in rawParams) delete (rawParams as any).reason
+      const modelValue = rawParams?.model ?? 'gpt-5'
+      const fundValue = rawParams?.fund ?? 1
+      const finalParams = {
+        ...rawParams,
+        query: typeof rawParams?.query === 'string' ? rawParams.query : '',
+        model: modelValue,
+        fund: fundValue,
+      }
+
+      // Inject session/agent context into params per API contract; do not send at top-level
+      const execParams = {
+        ...finalParams,
+        sessionId: sId,
+        ...(aId ? { agentId: aId } : {}),
+      }
+
       client
         .workflowsExecute({
           workflowName,
-          params: { sessionId: sId, ...(aId ? { agentId: aId } : {}), ...(params || {}), model: modelValue, fund: fundValue },
+          params: execParams,
         })
         .then(() => {
           reload()
