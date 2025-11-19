@@ -11,6 +11,7 @@ import {
   getWorkflowName,
   NewSessionModal,
   useNewSessionAgents,
+  useNewSessionCreation,
 } from '../features/sessions/public'
 import { TaskModal } from '../features/tasks/public'
 import { AgentModal, useAgentModalController, useSessionAgentConfig, useAgentsApi } from '../features/agents/public'
@@ -73,35 +74,13 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     mapDocToSession: mapTopicInfoToSession,
   })
 
-  // Ephemeral (local) sessions created via modal; cleared on auth/project change
-  const [ephemeralSessions, setEphemeralSessions] = useState<Session[]>([])
-
-  // Clear ephemeral sessions when user changes or project changes
-  useEffect(() => {
-    setEphemeralSessions([])
-  }, [user?.uid])
-  useEffect(() => {
-    if (projectId != null) setEphemeralSessions([])
-  }, [projectId])
-
   // Debounce query to reduce recomputation during fast typing
   const debouncedQuery = useDebouncedValue(query, 200)
 
-  // Combine ephemeral + server sessions (dedupe by id; server overrides; ephemeral-only at top)
-  const combinedSessions = useMemo<Session[]>(() => {
-    if (!sessions?.length && !ephemeralSessions.length) return mockSessions
-    const serverIds = new Set((sessions || []).map(s => s.id))
-    const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
-    return [...ephemeralOnly, ...(sessions || [])]
-  }, [sessions, ephemeralSessions])
-
-  // Filter sessions using shared helper
-  const filtered = useMemo(() => filterSessionsByQuery(combinedSessions, debouncedQuery), [combinedSessions, debouncedQuery])
-
   // Selection lifecycle encapsulated in feature hook
   const { selectedId, setSelectedId, selected } = useSessionSelection({
-    sessions: combinedSessions,
-    filtered,
+    sessions: sessions || mockSessions,
+    filtered: sessions || mockSessions,
     userId: user?.uid,
     idToken,
   })
@@ -126,36 +105,67 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     else setPane('list')
   }, [isMobile, selectedId])
 
-  // Compute workflow name based on session and env
-  const sessionWorkflowName = getWorkflowName(selected?.id)
-
-  // Agent modal controller (encapsulated in features/agents)
-  const agent = useAgentModalController({
-    idToken,
-    sessionId: selected?.id || null,
-    workflowName: sessionWorkflowName || null,
-    enabled: !!selected,
-  })
-
-  // Server-backed session agent config (single source of truth for agent + workflow)
-  const agentConfig = useSessionAgentConfig({ idToken, sessionId: selected?.id, enabled: !!selected })
-
   // Single shared workflow exec hook for this page; include agentId when configured
   const { status: wfStatus, running: wfRunning, error: wfError, start: startWf, stop: stopWf } = useWorkflowExec({
     sessionId: selected?.id,
     idToken,
     enabled: !!selected,
-    agentId: agentConfig.agent?.id || null,
+    agentId: null,
   })
+
+  // Use new session creation hook (manages ephemeral sessions, agent linking, and kickoff)
+  const { ephemeralSessions, createNewSession } = useNewSessionCreation({
+    userId: user?.uid || null,
+    projectId,
+    startWf,
+    agentsApi,
+  })
+
+  // Combine ephemeral + server sessions (dedupe by id; server overrides; ephemeral-only at top)
+  const combinedSessions = useMemo<Session[]>(() => {
+    const base = sessions || mockSessions
+    if (!base.length && !ephemeralSessions.length) return mockSessions
+    const serverIds = new Set(base.map(s => s.id))
+    const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
+    return [...ephemeralOnly, ...base]
+  }, [sessions, ephemeralSessions])
+
+  // Filter sessions using shared helper
+  const filtered = useMemo(() => filterSessionsByQuery(combinedSessions, debouncedQuery), [combinedSessions, debouncedQuery])
+
+  // Re-resolve selected against combined and filtered lists
+  const resolvedSelection = useSessionSelection({
+    sessions: combinedSessions,
+    filtered,
+    userId: user?.uid,
+    idToken,
+  })
+  const selId = resolvedSelection.selectedId
+  const setSelId = resolvedSelection.setSelectedId
+  const sel = resolvedSelection.selected
+
+  // Compute workflow name based on session and env
+  const sessionWorkflowName = getWorkflowName(sel?.id)
+
+  // Agent modal controller (encapsulated in features/agents)
+  const agent = useAgentModalController({
+    idToken,
+    sessionId: sel?.id || null,
+    workflowName: sessionWorkflowName || null,
+    enabled: !!sel,
+  })
+
+  // Server-backed session agent config (single source of truth for agent + workflow)
+  const agentConfig = useSessionAgentConfig({ idToken, sessionId: sel?.id, enabled: !!sel })
 
   // Effective workflow chosen from agent configuration, falling back to session-derived
   const effectiveWorkflowName = agentConfig.workflowName || sessionWorkflowName || null
 
   // Task counts for selected session
   const { counts: taskCounts, reload: reloadTaskCounts } = useTasksCounts({
-    sessionId: selected?.id,
+    sessionId: sel?.id,
     idToken,
-    enabled: !!selected,
+    enabled: !!sel,
   })
 
   // Session tasks logic (status selection, inline list, modal CRUD)
@@ -175,20 +185,20 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     handleSaveTask,
     handleDeleteTask,
   } = useSessionTasks({
-    sessionId: selected?.id,
+    sessionId: sel?.id,
     idToken,
     workflowName: effectiveWorkflowName || undefined,
     startWf,
-    enabled: !!selected,
+    enabled: !!sel,
     reloadTaskCounts,
   })
 
   // Topic context messages for selected session (disabled while viewing tasks)
   const { messages, running, error: execError, reload } = useTopicContextYoj({
-    sessionId: selected?.id,
+    sessionId: sel?.id,
     idToken,
     windowSeconds: 3600,
-    enabled: !!selected && !activeTaskStatus,
+    enabled: !!sel && !activeTaskStatus,
   })
 
   // Scroll container/anchor refs
@@ -196,18 +206,17 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const bottomRef = useRef<HTMLDivElement | null>(null)
   const topRef = useRef<HTMLDivElement | null>(null)
 
-
   // Reusable auto-scroll behavior with "home" detection:
   const home: 'top' | 'bottom' = activeTaskStatus ? 'top' : 'bottom'
   const itemCount = activeTaskStatus ? (sessionTasks?.length || 0) : (messages?.length || 0)
-  const viewKey = `${selected?.id || 'none'}:${activeTaskStatus ? `tasks:${activeTaskStatus}` : 'messages'}`
+  const viewKey = `${sel?.id || 'none'}:${activeTaskStatus ? `tasks:${activeTaskStatus}` : 'messages'}`
 
   useScrollHome({
     containerRef: scrollRef,
     anchorRef: home === 'bottom' ? bottomRef : undefined,
     itemCount,
     home,
-    enabled: !!selected,
+    enabled: !!sel,
     key: viewKey,
   })
 
@@ -218,9 +227,9 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     errorCount: plainifyErrorCount,
     dismissErrors: handlePlainifyDismissErrors,
   } = usePlainify({
-    sessionId: selected?.id,
+    sessionId: sel?.id,
     idToken,
-    enabled: !!selected,
+    enabled: !!sel,
   })
 
   const [submitting, setSubmitting] = useState(false)
@@ -243,8 +252,8 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
 
   // Disable timed polling; rely solely on event-driven refresh
   useSessionPolling({
-    enabled: !!selected?.id,
-    sessionId: selected?.id,
+    enabled: !!sel?.id,
+    sessionId: sel?.id,
     activeTaskStatus,
     running: !!running,
     reloadMessages: reload,
@@ -254,105 +263,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   })
 
   // File editor controller (encapsulated in features/fileviewer)
-  const fileEditor = useFileEditorController({ idToken, enabled: !!selected, sessionId: selected?.id || null })
-
-  // Handlers: create new session
-  function generateUuid() {
-    try {
-      // modern browsers
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const g = (globalThis as any).crypto?.randomUUID
-      if (typeof g === 'function') return g()
-    } catch {}
-    // fallback
-    const s: string[] = []
-    const hex = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-    for (let i = 0; i < hex.length; i++) {
-      const c = hex[i]
-      if (c === 'x' || c === 'y') {
-        const r = Math.random() * 16 | 0
-        const v = c === 'x' ? r : (r & 0x3) | 0x8
-        s.push(v.toString(16))
-      } else {
-        s.push(c)
-      }
-    }
-    return s.join('')
-  }
-
-  type NewSessionCreateInput = { agentId?: string | null; workflowName?: string | null }
-
-  async function handleCreateNewSession(input: NewSessionCreateInput) {
-    const { agentId, workflowName } = input || {}
-    const id = generateUuid()
-    // Insert ephemeral session so it appears immediately in the sidebar
-    const nowIso = new Date().toISOString()
-    // Default title to sessionId (id)
-    setEphemeralSessions(prev => [{ id, title: id, updatedAt: nowIso }, ...prev])
-
-    setSelectedId(id)
-    setActiveTaskStatus(null)
-    setNewOpen(false)
-    if (isMobile) setPane('detail')
-
-    try {
-      // Prefer linking to an existing agent if explicitly selected
-      if (agentId) {
-        await agentsApi.linkSessionAgent(id, agentId)
-        // Attempt to resolve agent's configured workflow for initial kick-off
-        let wfName: string | null = null
-        try {
-          const ag = await agentsApi.getAgentById(agentId)
-          wfName = ag?.workflowName || null
-        } catch {
-          wfName = null
-        }
-        // Fallback to session-derived workflow if agent does not declare one
-        if (!wfName) wfName = getWorkflowName(id) || null
-        if (wfName) {
-          await startWf(wfName, { reason: 'new-session' }, { sessionId: id, agentId })
-        }
-        if (selected?.id === id) await agentConfig.reload()
-        return
-      }
-
-      // If a workflow is selected, create a new agent (name autofilled from workflow) and link
-      if (workflowName) {
-        // Load default tools to persist with the newly created agent (backend does not add them automatically)
-        let defaultTools: string[] = []
-        try {
-          // some implementations use a sentinel name like 'default' to fetch the base toolset
-          defaultTools = await agentsApi.listAgentTools('default')
-        } catch {
-          defaultTools = []
-        }
-        const newAgent = await agentsApi.saveAgent({ name: workflowName, description: '', workflowName, tools: defaultTools })
-        if (newAgent?.id) {
-          await agentsApi.linkSessionAgent(id, newAgent.id)
-          // Kick off the selected workflow via the newly created agent
-          await startWf(workflowName, { reason: 'new-session' }, { sessionId: id, agentId: newAgent.id })
-          if (selected?.id === id) await agentConfig.reload()
-        }
-        return
-      }
-
-      // No agent selection and no workflow => default to session-only execution
-      const fallbackWf = getWorkflowName(id)
-      if (fallbackWf) {
-        await startWf(fallbackWf, { reason: 'new-session' }, { sessionId: id })
-      }
-    } catch (e) {
-      // soft-fail
-      console.warn('Failed to set up agent/workflow execution for new session', e)
-    }
-  }
-
-  // Defaults for New Session modal: match newest session's agent/workflow
-  const newestSession = combinedSessions[0] || null
-  const newestConfig = useSessionAgentConfig({ idToken, sessionId: newestSession?.id || null, enabled: newOpen && !!newestSession?.id })
-  const newestDerivedWorkflowName = newestSession ? getWorkflowName(newestSession.id) : null
-  const defaultWorkflowForNew = newestConfig.workflowName || newestDerivedWorkflowName || null
-  const defaultAgentForNew = newestConfig.agent?.name || null
+  const fileEditor = useFileEditorController({ idToken, enabled: !!sel, sessionId: sel?.id || null })
 
   return (
     <div
@@ -394,10 +305,18 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         >
           {leftPanel === 'sessions' ? (
             <SessionSidebar
-              sessions={filtered}
-              selectedId={selectedId}
+              sessions={filterSessionsByQuery(
+                // Show ephemeral-only sessions first
+                ((): Session[] => {
+                  const serverIds = new Set((sessions || []).map(s => s.id))
+                  const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
+                  return [...ephemeralOnly, ...(sessions || [])]
+                })(),
+                debouncedQuery,
+              )}
+              selectedId={selId}
               onSelect={(id) => {
-                setSelectedId(id)
+                setSelId(id)
                 setActiveTaskStatus(null)
                 if (isMobile) setPane('detail')
               }}
@@ -409,7 +328,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             />
           ) : (
             <FileSystemSidebar
-              sessionId={selected?.id}
+              sessionId={sel?.id}
               idToken={idToken}
               pendingCount={plainifyPending}
               errorCount={plainifyErrorCount}
@@ -434,12 +353,12 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
           maxWidth: '100%',
         }}
       >
-        {!selected ? (
+        {!sel ? (
           <div style={{ color: '#6b7280', textAlign: 'left' }}>Select a session to view details.</div>
         ) : (
           <SessionDetail
-            title={selected.title}
-            updatedAt={selected.updatedAt}
+            title={sel.title}
+            updatedAt={sel.updatedAt}
             counts={taskCounts || undefined}
             onTitleClick={activeTaskStatus ? () => setActiveTaskStatus(null) : undefined}
             onCountClick={(status) => setActiveTaskStatus(status)}
@@ -459,7 +378,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             bottomRef={bottomRef}
             topRef={topRef}
             // Identity for collapse state persistence
-            sessionId={selected.id}
+            sessionId={sel.id}
             idToken={idToken}
             promptPlaceholder={effectiveWorkflowName ? `Trigger workflow ${effectiveWorkflowName}…` : 'Select a session to trigger workflow'}
             wfStatus={wfStatus}
@@ -467,7 +386,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             submitting={submitting}
             onSubmit={handlePromptSubmit}
             onStop={handleStop}
-            promptDisabled={!selected}
+            promptDisabled={!sel}
             onBack={isMobile ? () => setPane('list') : undefined}
           />
         )}
@@ -513,10 +432,16 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         workflows={workflows}
         workflowsLoading={workflowsLoading}
         workflowsError={workflowsError}
-        defaultAgentName={defaultAgentForNew}
-        defaultWorkflowName={defaultWorkflowForNew}
+        defaultAgentName={(useSessionAgentConfig({ idToken, sessionId: (combinedSessions[0] || null)?.id || null, enabled: newOpen && !!(combinedSessions[0] || null)?.id })).agent?.name || null}
+        defaultWorkflowName={(useSessionAgentConfig({ idToken, sessionId: (combinedSessions[0] || null)?.id || null, enabled: newOpen && !!(combinedSessions[0] || null)?.id })).workflowName || getWorkflowName((combinedSessions[0] || null)?.id || '') || null}
         onClose={() => setNewOpen(false)}
-        onCreate={handleCreateNewSession}
+        onCreate={async (input) => {
+          const { id } = await createNewSession(input)
+          setSelId(id)
+          setActiveTaskStatus(null)
+          setNewOpen(false)
+          if (isMobile) setPane('detail')
+        }}
       />
     </div>
   )

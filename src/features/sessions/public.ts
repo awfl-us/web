@@ -11,6 +11,7 @@ export { useScrollHome } from './hooks/useScrollHome'
 export { useSessionPolling } from './hooks/useSessionPolling'
 export { useSessionSelection } from './hooks/useSessionSelection'
 export { useNewSessionAgents } from './hooks/useNewSessionAgents'
+export { useNewSessionCreation } from './hooks/useNewSessionCreation'
 
 // Utils and mappers (re-export via local wrappers)
 export { filterSessionsByQuery } from './utils/filterSessionsByQuery'

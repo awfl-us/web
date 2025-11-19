@@ -54,6 +54,17 @@ export function makeApiClient(opts: ApiClientOptions) {
       const qs = q.toString() ? `?${q.toString()}` : ''
       return await getJson(`/workflows/projects${qs}`, opts, ropts)
     },
+    async projectsCreate(body: { remote?: string | null; name?: string | null; live?: boolean | null }, ropts?: RequestOptions) {
+      // Create a project via POST /workflows/projects
+      // Accept optional name/remote/live; server generates id and returns { project } or the project object
+      const payload: any = {}
+      if (body && typeof body === 'object') {
+        if (body.remote != null && body.remote !== '') payload.remote = body.remote
+        if (body.name != null && String(body.name).trim() !== '') payload.name = String(body.name).trim()
+        if (body.live != null) payload.live = !!body.live
+      }
+      return await postJson('/workflows/projects', payload, opts, ropts)
+    },
 
     // Consumer lock status under /workflows/projects/:projectId/consumer-lock/status
     async consumerLockStatus(projectId: string, ropts?: RequestOptions) {

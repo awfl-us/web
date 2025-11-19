@@ -4,7 +4,7 @@ import Sessions from './pages/Sessions'
 import Tasks from './pages/Tasks'
 import IntegrationsGitHub from './pages/IntegrationsGitHub'
 import { useAuth } from './auth/AuthProvider'
-import { useProjectsList, getSelectedProjectId, setSelectedProjectId } from './features/projects/public'
+import { useProjectsList, getSelectedProjectId, setSelectedProjectId, NewProjectModal } from './features/projects/public'
 import { SettingsPage, useCredsApi } from './features/settings/public'
 import { InstructionsOverview } from './features/instructions/public'
 import { ConsumerStatusPill } from './features/consumers/public'
@@ -27,7 +27,7 @@ function App() {
   const [projectId, setProjectId] = useState<string>(getSelectedProjectId() || '')
 
   // Load projects from API (encapsulated in features/projects)
-  const { projects, loading: loadingProjects } = useProjectsList({ idToken, enabled: true })
+  const { projects, loading: loadingProjects, reload: reloadProjects } = useProjectsList({ idToken, enabled: true })
 
   function handleProjectSelect(e: ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value
@@ -131,6 +131,9 @@ function App() {
   const closeBtnRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
+  // New project modal state
+  const [newOpen, setNewOpen] = useState(false)
+
   useEffect(() => {
     if (!mobileOpen) return
     const prev = (document.activeElement as HTMLElement | null) || null
@@ -212,6 +215,16 @@ function App() {
             <ConsumerStatusPill idToken={idToken} projectId={projectId} enabled={true} />
           ) : null}
         </nav>
+
+        {/* New project button — persist on mobile (placed outside nav-left) */}
+        <button
+          onClick={() => setNewOpen(true)}
+          title="Create a new project"
+          style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #1d4ed8', background: '#2563eb', color: 'white' }}
+        >
+          New
+        </button>
+
         <AuthControls />
       </header>
 
@@ -276,6 +289,18 @@ function App() {
           </div>
         </>
       )}
+
+      {/* New project modal */}
+      <NewProjectModal
+        idToken={idToken}
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        onCreated={(proj) => {
+          setSelectedProjectId(proj.id)
+          setProjectId(proj.id)
+          reloadProjects()
+        }}
+      />
 
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {route === 'home' ? (
