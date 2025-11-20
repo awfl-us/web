@@ -47,6 +47,9 @@ export interface SessionDetailProps {
   submitting?: boolean
   onSubmit: (text: string) => void | Promise<void>
   onStop: () => void | Promise<void>
+
+  // Latest exec status error (e.g., when status === Failed)
+  execStatusError?: string | null
 }
 
 export function SessionDetail(props: SessionDetailProps) {
@@ -83,6 +86,7 @@ export function SessionDetail(props: SessionDetailProps) {
     submitting,
     onSubmit,
     onStop,
+    execStatusError,
   } = props
 
   const [text, setText] = useState('')
@@ -202,6 +206,11 @@ export function SessionDetail(props: SessionDetailProps) {
         sessionId={sessionId || undefined}
         idToken={idToken || undefined}
       />
+
+      {/* Latest exec status error banner (e.g., when status === Failed) */}
+      {execStatusError ? (
+        <ErrorBanner variant="strong">{execStatusError}</ErrorBanner>
+      ) : null}
 
       {/* Prompt composer */}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

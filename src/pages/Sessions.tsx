@@ -242,6 +242,9 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     enabled: !!sel && !activeTaskStatus,
   })
 
+  // Derive latest exec error when latest status is Failed
+  const execStatusError = awx.status === 'Failed' ? (awx.latest?.error || 'Execution failed') : null
+
   // Scroll container/anchor refs
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
@@ -423,6 +426,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             onBack={isMobile ? () => setPane('list') : undefined}
             assistantName={assistantName}
             hideExecGutter={isMobile}
+            execStatusError={execStatusError}
           />
         )}
       </main>

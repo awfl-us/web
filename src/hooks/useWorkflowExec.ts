@@ -5,6 +5,7 @@ export type LatestExecItem = {
   execId: string
   created?: number
   status?: string
+  error?: string
   // other fields may be present
 }
 
