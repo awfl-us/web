@@ -12,9 +12,10 @@ import {
   NewSessionModal,
   useNewSessionAgents,
   useNewSessionCreation,
+  mergeSessions,
 } from '../features/sessions/public'
 import { TaskModal } from '../features/tasks/public'
-import { AgentModal, useAgentModalController, useSessionAgentConfig, useAgentsApi } from '../features/agents/public'
+import { AgentModal, useAgentModalController, useSessionAgentConfig, useAgentsApi, useAgentWorkflowExecute } from '../features/agents/public'
 import { SidebarNav } from '../features/sidebar/public'
 import { FileSystemSidebar } from '../features/filesystem/public'
 import { FileEditorModal, useFileEditorController } from '../features/fileviewer/public'
@@ -30,8 +31,6 @@ import { useWorkflowExec, useDebouncedValue, useSessionPolling } from '../core/p
 import { useTasksCounts, useSessionTasks } from '../features/tasks/public'
 import { usePlainify } from '../features/plain/public'
 import { useScrollHome} from '../features/sessions/public'
-
-const mockSessions: Session[] = []
 
 export default function Sessions(props: { projectId?: string | null } = {}) {
   const { projectId = null } = props
@@ -94,14 +93,8 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     autoStart: false,
   })
 
-  // Merge ephemeral + server sessions (dedupe by id; server overrides; ephemeral-only at top)
-  const mergedSessions = useMemo<Session[]>(() => {
-    const base = sessions || mockSessions
-    if (!base.length && !ephemeralSessions.length) return mockSessions
-    const serverIds = new Set(base.map(s => s.id))
-    const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
-    return [...ephemeralOnly, ...base]
-  }, [sessions, ephemeralSessions])
+  // Merge ephemeral + server sessions via shared utility
+  const mergedSessions = useMemo<Session[]>(() => mergeSessions(sessions, ephemeralSessions), [sessions, ephemeralSessions])
 
   // Filter sessions using shared helper
   const filtered = useMemo(() => filterSessionsByQuery(mergedSessions, debouncedQuery), [mergedSessions, debouncedQuery])
@@ -150,16 +143,30 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // Server-backed session agent config (single source of truth for agent + workflow)
   const agentConfig = useSessionAgentConfig({ idToken, sessionId: sel?.id, enabled: !!sel })
 
-  // Effective workflow/agent chosen from pendingNew (if for this session) then agent configuration, falling back to session-derived name
+  // Compute pending hints and session-like fallback
   const pendingAgentForSel = sel?.id && pendingNew?.sessionId === sel.id ? pendingNew?.agentId ?? null : null
   const pendingWfForSel = sel?.id && pendingNew?.sessionId === sel.id ? pendingNew?.workflowName ?? null : null
-  // Compute workflow name based on session and env (fallback)
   const sessionWorkflowName = getWorkflowName(sel?.id)
-  const effectiveWorkflowName = pendingWfForSel || agentConfig.workflowName || sessionWorkflowName || null
-  const effectiveAgentId = pendingAgentForSel || agentConfig.mapping?.agentId || null
 
-  // Single shared workflow exec hook for this page; include agentId when configured
-  const { status: wfStatus, running: wfRunning, error: wfError, start: startWf, stop: stopWf } = useWorkflowExec({
+  const sessionLike = useMemo(() => ({
+    agentId: agentConfig.mapping?.agentId ?? null,
+    workflowName: agentConfig.workflowName || pendingWfForSel || sessionWorkflowName || null,
+  }), [agentConfig.mapping?.agentId, agentConfig.workflowName, pendingWfForSel, sessionWorkflowName])
+
+  // Resolve effective agent/workflow and provide execution helpers via agents feature
+  const awx = useAgentWorkflowExecute({
+    sessionId: sel?.id,
+    idToken,
+    enabled: !!sel,
+    pendingAgentId: pendingAgentForSel,
+    session: sessionLike,
+  })
+
+  const effectiveWorkflowName = awx.workflowName || null
+  const effectiveAgentId = awx.agentId || null
+
+  // Single shared workflow exec for arbitrary workflow names (used by tasks + new-session hook)
+  const genericExec = useWorkflowExec({
     sessionId: sel?.id,
     idToken,
     enabled: !!sel,
@@ -176,13 +183,13 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   useEffect(() => {
     startWfRef.current = (workflowName: string, input: { query: string }, opts?: { sessionId?: string; agentId?: string }) => {
       const sid = opts?.sessionId ?? currentSessionIdRef.current ?? undefined
-      return startWf(
+      return genericExec.start(
         workflowName,
         { query: input?.query ?? '' },
         { ...opts, sessionId: sid }
       )
     }
-  }, [startWf])
+  }, [genericExec.start])
 
   // Agent modal controller (encapsulated in features/agents)
   const agent = useAgentModalController({
@@ -272,7 +279,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     if (!effectiveWorkflowName) return
     try {
       setSubmitting(true)
-      await startWfRef.current(effectiveWorkflowName, { query: text }, { agentId: effectiveAgentId || undefined })
+      await awx.execute({ query: text })
     } finally {
       setSubmitting(false)
     }
@@ -280,7 +287,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
 
   async function handleStop() {
     try {
-      await stopWf({ includeDescendants: true, workflow: effectiveWorkflowName || undefined })
+      await awx.stop({ includeDescendants: true, workflow: effectiveWorkflowName || undefined })
     } catch {}
   }
 
@@ -392,7 +399,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             onAddTask={openAddTask}
             onEditAgent={agent.openEdit}
             execError={execError}
-            wfError={wfError}
+            wfError={awx.error}
             running={running}
             messages={messages as any}
             tasksError={tasksError}
@@ -407,8 +414,8 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             sessionId={sel.id}
             idToken={idToken}
             promptPlaceholder={effectiveWorkflowName ? `Trigger workflow ${effectiveWorkflowName}…` : 'Select a session to trigger workflow'}
-            wfStatus={wfStatus}
-            wfRunning={wfRunning}
+            wfStatus={awx.status}
+            wfRunning={awx.running}
             submitting={submitting}
             onSubmit={handlePromptSubmit}
             onStop={handleStop}

@@ -17,6 +17,7 @@ export { useNewSessionCreation } from './hooks/useNewSessionCreation'
 export { filterSessionsByQuery } from './utils/filterSessionsByQuery'
 export { mapTopicInfoToSession } from './utils/mapTopicInfoToSession'
 export { getWorkflowName } from './utils/getWorkflowName'
+export { mergeSessions } from './utils/mergeSessions'
 
 // Types (re-export via local wrapper)
 export type { Session } from './types/session'
