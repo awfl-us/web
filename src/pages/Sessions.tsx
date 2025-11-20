@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 
 // Components & hooks from features
@@ -77,10 +77,39 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // Debounce query to reduce recomputation during fast typing
   const debouncedQuery = useDebouncedValue(query, 200)
 
-  // Selection lifecycle encapsulated in feature hook
-  const { selectedId, setSelectedId } = useSessionSelection({
-    sessions: sessions || mockSessions,
-    filtered: sessions || mockSessions,
+  // startWf ref indirection so we can provide it to new-session creation before exec hook is ready
+  const startWfRef = useRef<(
+    workflowName: string,
+    input: { query: string },
+    opts?: { sessionId?: string; agentId?: string }
+  ) => Promise<any>>(() => Promise.resolve(undefined))
+
+  // Use new session creation hook (manages ephemeral sessions, agent linking, optional kickoff)
+  const { ephemeralSessions, createNewSession } = useNewSessionCreation({
+    userId: user?.uid || null,
+    projectId,
+    // delegate to the ref (will be populated after exec hook mounts); autostart disabled here
+    startWf: (workflowName, input, opts) => startWfRef.current(workflowName, input, opts),
+    agentsApi,
+    autoStart: false,
+  })
+
+  // Merge ephemeral + server sessions (dedupe by id; server overrides; ephemeral-only at top)
+  const mergedSessions = useMemo<Session[]>(() => {
+    const base = sessions || mockSessions
+    if (!base.length && !ephemeralSessions.length) return mockSessions
+    const serverIds = new Set(base.map(s => s.id))
+    const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
+    return [...ephemeralOnly, ...base]
+  }, [sessions, ephemeralSessions])
+
+  // Filter sessions using shared helper
+  const filtered = useMemo(() => filterSessionsByQuery(mergedSessions, debouncedQuery), [mergedSessions, debouncedQuery])
+
+  // Single selection state resolved against merged + filtered lists
+  const { selectedId, setSelectedId, selected: sel } = useSessionSelection({
+    sessions: mergedSessions,
+    filtered,
     userId: user?.uid,
     idToken,
   })
@@ -105,31 +134,36 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     else setPane('list')
   }, [isMobile, selectedId])
 
-  // Re-resolve selected against combined and filtered lists
-  const combinedSessions = useMemo<Session[]>(() => {
-    // This will be refined after ephemeral merge below; start with base list to keep selection stable
-    return sessions || mockSessions
-  }, [sessions])
+  // Track the most recently created session's agent + workflow to avoid falling back to sessionId workflow before config loads
+  const [pendingNew, setPendingNew] = useState<{ sessionId: string; agentId?: string | null; workflowName?: string | null } | null>(null)
+  // Clear pending if selection moves to a different session
+  useEffect(() => {
+    if (!sel?.id) {
+      setPendingNew(null)
+      return
+    }
+    if (pendingNew && pendingNew.sessionId !== sel.id) {
+      setPendingNew(null)
+    }
+  }, [sel?.id])
 
-  // Filter sessions using shared helper
-  const filtered = useMemo(() => filterSessionsByQuery(combinedSessions, debouncedQuery), [combinedSessions, debouncedQuery])
+  // Server-backed session agent config (single source of truth for agent + workflow)
+  const agentConfig = useSessionAgentConfig({ idToken, sessionId: sel?.id, enabled: !!sel })
 
-  const resolvedSelection = useSessionSelection({
-    sessions: combinedSessions,
-    filtered,
-    userId: user?.uid,
-    idToken,
-  })
-  const selId = resolvedSelection.selectedId
-  const setSelId = resolvedSelection.setSelectedId
-  const sel = resolvedSelection.selected
+  // Effective workflow/agent chosen from pendingNew (if for this session) then agent configuration, falling back to session-derived name
+  const pendingAgentForSel = sel?.id && pendingNew?.sessionId === sel.id ? pendingNew?.agentId ?? null : null
+  const pendingWfForSel = sel?.id && pendingNew?.sessionId === sel.id ? pendingNew?.workflowName ?? null : null
+  // Compute workflow name based on session and env (fallback)
+  const sessionWorkflowName = getWorkflowName(sel?.id)
+  const effectiveWorkflowName = pendingWfForSel || agentConfig.workflowName || sessionWorkflowName || null
+  const effectiveAgentId = pendingAgentForSel || agentConfig.mapping?.agentId || null
 
   // Single shared workflow exec hook for this page; include agentId when configured
   const { status: wfStatus, running: wfRunning, error: wfError, start: startWf, stop: stopWf } = useWorkflowExec({
     sessionId: sel?.id,
     idToken,
     enabled: !!sel,
-    agentId: null,
+    agentId: effectiveAgentId || null,
   })
 
   // Keep a ref of the current selected session id to avoid stale captures in handlers
@@ -138,38 +172,17 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     currentSessionIdRef.current = sel?.id || null
   }, [sel?.id])
 
-  // Wrapper that always injects the latest sessionId when starting a workflow
-  const startWfForCurrentSession = useCallback(
-    (workflowName: string, input?: { query?: string }, opts?: { sessionId?: string; agentId?: string }) => {
+  // Populate startWfRef with the real implementation once available
+  useEffect(() => {
+    startWfRef.current = (workflowName: string, input: { query: string }, opts?: { sessionId?: string; agentId?: string }) => {
       const sid = opts?.sessionId ?? currentSessionIdRef.current ?? undefined
       return startWf(
         workflowName,
         { query: input?.query ?? '' },
         { ...opts, sessionId: sid }
       )
-    },
-    [startWf]
-  )
-
-  // Use new session creation hook (manages ephemeral sessions, agent linking, and kickoff)
-  const { ephemeralSessions, createNewSession } = useNewSessionCreation({
-    userId: user?.uid || null,
-    projectId,
-    startWf: startWfForCurrentSession,
-    agentsApi,
-  })
-
-  // Merge ephemeral + server sessions (dedupe by id; server overrides; ephemeral-only at top)
-  const mergedSessions = useMemo<Session[]>(() => {
-    const base = sessions || mockSessions
-    if (!base.length && !ephemeralSessions.length) return mockSessions
-    const serverIds = new Set(base.map(s => s.id))
-    const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
-    return [...ephemeralOnly, ...base]
-  }, [sessions, ephemeralSessions])
-
-  // Compute workflow name based on session and env
-  const sessionWorkflowName = getWorkflowName(sel?.id)
+    }
+  }, [startWf])
 
   // Agent modal controller (encapsulated in features/agents)
   const agent = useAgentModalController({
@@ -178,12 +191,6 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     workflowName: sessionWorkflowName || null,
     enabled: !!sel,
   })
-
-  // Server-backed session agent config (single source of truth for agent + workflow)
-  const agentConfig = useSessionAgentConfig({ idToken, sessionId: sel?.id, enabled: !!sel })
-
-  // Effective workflow chosen from agent configuration, falling back to session-derived
-  const effectiveWorkflowName = agentConfig.workflowName || sessionWorkflowName || null
 
   // Assistant label: prefer configured agent name; fallback to "Assistant"
   const assistantName = (agentConfig.agent?.name?.trim?.() || '').trim() || 'Assistant'
@@ -215,7 +222,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     sessionId: sel?.id,
     idToken,
     workflowName: effectiveWorkflowName || undefined,
-    startWf: startWfForCurrentSession,
+    startWf: (wf: string, payload: Record<string, any>) => startWfRef.current(wf, { query: (payload as any)?.query ?? '' }, { agentId: effectiveAgentId || undefined }),
     enabled: !!sel,
     reloadTaskCounts,
   })
@@ -265,7 +272,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     if (!effectiveWorkflowName) return
     try {
       setSubmitting(true)
-      await startWfForCurrentSession(effectiveWorkflowName, { query: text })
+      await startWfRef.current(effectiveWorkflowName, { query: text }, { agentId: effectiveAgentId || undefined })
     } finally {
       setSubmitting(false)
     }
@@ -332,18 +339,10 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         >
           {leftPanel === 'sessions' ? (
             <SessionSidebar
-              sessions={filterSessionsByQuery(
-                // Show ephemeral-only sessions first
-                (() : Session[] => {
-                  const serverIds = new Set((sessions || []).map(s => s.id))
-                  const ephemeralOnly = ephemeralSessions.filter(s => !serverIds.has(s.id))
-                  return [...ephemeralOnly, ...(sessions || [])]
-                })(),
-                debouncedQuery,
-              )}
-              selectedId={selId}
+              sessions={filterSessionsByQuery(mergedSessions, debouncedQuery)}
+              selectedId={selectedId}
               onSelect={(id) => {
-                setSelId(id)
+                setSelectedId(id)
                 setActiveTaskStatus(null)
                 if (isMobile) setPane('detail')
               }}
@@ -465,8 +464,9 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         defaultWorkflowName={(useSessionAgentConfig({ idToken, sessionId: (mergedSessions[0] || null)?.id || null, enabled: newOpen && !!(mergedSessions[0] || null)?.id })).workflowName || getWorkflowName((mergedSessions[0] || null)?.id || '') || null}
         onClose={() => setNewOpen(false)}
         onCreate={async (input) => {
-          const { id } = await createNewSession(input)
-          setSelId(id)
+          const { id, agentId, workflowName } = await createNewSession(input)
+          setSelectedId(id)
+          setPendingNew({ sessionId: id, agentId: agentId ?? null, workflowName: workflowName ?? null })
           setActiveTaskStatus(null)
           setNewOpen(false)
           if (isMobile) setPane('detail')

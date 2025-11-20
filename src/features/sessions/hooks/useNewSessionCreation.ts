@@ -39,8 +39,9 @@ export function useNewSessionCreation(params: {
     listAgentTools: (name: string) => Promise<string[]>
     saveAgent: (input: { name: string; description: string; workflowName: string; tools: string[] }) => Promise<{ id?: string | null }>
   }
+  autoStart?: boolean
 }) {
-  const { userId, projectId, startWf, agentsApi } = params
+  const { userId, projectId, startWf, agentsApi, autoStart = true } = params
 
   const [ephemeralSessions, setEphemeralSessions] = useState<Session[]>([])
 
@@ -65,7 +66,7 @@ export function useNewSessionCreation(params: {
       // Prefer linking to an existing agent if explicitly selected
       if (agentId) {
         await agentsApi.linkSessionAgent(id, agentId)
-        // Attempt to resolve agent's configured workflow for initial kick-off
+        // Attempt to resolve agent's configured workflow for optional initial kick-off
         let wfName: string | null = null
         try {
           const ag = await agentsApi.getAgentById(agentId)
@@ -75,10 +76,10 @@ export function useNewSessionCreation(params: {
         }
         // Fallback to session-derived workflow if agent does not declare one
         if (!wfName) wfName = getWorkflowName(id) || null
-        if (wfName) {
+        if (autoStart && wfName) {
           await startWf(wfName, { query: '' }, { sessionId: id, agentId: agentId || undefined })
         }
-        return { id }
+        return { id, agentId, workflowName: wfName }
       }
 
       // If a workflow is selected, create a new agent (name autofilled from workflow) and link
@@ -94,16 +95,14 @@ export function useNewSessionCreation(params: {
         const newAgent = await agentsApi.saveAgent({ name: workflowName, description: '', workflowName, tools: defaultTools })
         if (newAgent?.id) {
           await agentsApi.linkSessionAgent(id, newAgent.id)
-          // Kick off the selected workflow via the newly created agent
-          await startWf(workflowName, { query: '' }, { sessionId: id, agentId: newAgent.id || undefined })
+          // Optionally kick off the selected workflow via the newly created agent
+          if (autoStart) {
+            await startWf(workflowName, { query: '' }, { sessionId: id, agentId: newAgent.id || undefined })
+          }
+          return { id, agentId: newAgent.id || null, workflowName }
         }
-        return { id }
-      }
-
-      // No agent selection and no workflow => default to session-only execution
-      const fallbackWf = getWorkflowName(id)
-      if (fallbackWf) {
-        await startWf(fallbackWf, { query: '' }, { sessionId: id })
+        // Could not create/link an agent; still return the intended workflowName for immediate use
+        return { id, agentId: null, workflowName }
       }
     } catch (e) {
       // soft-fail; keep the ephemeral session so the user has an entry
