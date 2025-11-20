@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDebouncedValue } from '../../core/public'
 import type { WorkflowSelectorProps } from './types'
 
 function groupByDash(names: string[]): Array<{ group: string; items: string[] }> {
@@ -17,17 +18,22 @@ function groupByDash(names: string[]): Array<{ group: string; items: string[] }>
 }
 
 export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Select a workflow…', disabled, loading, style }: WorkflowSelectorProps) {
-  const [query, setQuery] = useState('')
+  // Single input used for both editing and filtering; clear on focus, restore on blur if no selection
   const [open, setOpen] = useState(false)
+  const [usingDraft, setUsingDraft] = useState(false)
+  const [draft, setDraft] = useState('')
+
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const valueInputRef = useRef<HTMLInputElement | null>(null)
-  const filterInputRef = useRef<HTMLInputElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  const currentText = usingDraft ? draft : (value || '')
+  const debounced = useDebouncedValue(currentText, 200)
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = debounced.trim().toLowerCase()
     if (!q) return workflows
     return workflows.filter(w => w.toLowerCase().includes(q))
-  }, [workflows, query])
+  }, [workflows, debounced])
 
   const groups = useMemo(() => groupByDash(filtered), [filtered])
 
@@ -40,35 +46,71 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
       const target = e.target as Node | null
       if (target && el.contains(target)) return
       setOpen(false)
+      // Restore original value if we were drafting without committing
+      if (usingDraft) {
+        setUsingDraft(false)
+        setDraft('')
+      }
     }
     document.addEventListener('mousedown', handleDocMouseDown)
     return () => document.removeEventListener('mousedown', handleDocMouseDown)
-  }, [open])
+  }, [open, usingDraft])
 
   function commitSelection(name: string) {
     onChange(name)
     setOpen(false)
-    setQuery('')
+    setUsingDraft(false)
+    setDraft('')
   }
 
   return (
     <div ref={containerRef} style={{ display: 'grid', gap: 6, position: 'relative', ...style }}>
       <input
-        ref={valueInputRef}
+        ref={inputRef}
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setOpen(true)}
+        value={currentText}
+        onChange={(e) => {
+          if (usingDraft) {
+            setDraft(e.target.value)
+          } else {
+            onChange(e.target.value)
+          }
+        }}
+        onFocus={() => {
+          setOpen(true)
+          // Begin drafting with a cleared field for easier searching
+          setUsingDraft(true)
+          setDraft('')
+        }}
+        onBlur={() => {
+          // If user leaves without committing, restore the original prop-controlled value
+          if (usingDraft) {
+            setUsingDraft(false)
+            setDraft('')
+          }
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             setOpen(false)
+            if (usingDraft) {
+              setUsingDraft(false)
+              setDraft('')
+            }
             return
           }
           if (e.key === 'Enter') {
-            const v = (e.currentTarget.value || '').trim()
-            if (v && workflows.includes(v)) {
-              e.preventDefault()
-              commitSelection(v)
+            const v = (currentText || '').trim()
+            if (v) {
+              if (workflows.includes(v)) {
+                e.preventDefault()
+                commitSelection(v)
+                return
+              }
+              if (filtered.length > 0) {
+                e.preventDefault()
+                commitSelection(filtered[0])
+                return
+              }
             }
           }
         }}
@@ -82,34 +124,7 @@ export function WorkflowSelector({ workflows, value, onChange, placeholder = 'Se
           background: disabled ? '#f3f4f6' : '#fff',
         }}
       />
-      <input
-        ref={filterInputRef}
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Filter…"
-        disabled={disabled}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            setOpen(false)
-            return
-          }
-          if (e.key === 'Enter') {
-            if (filtered.length > 0) {
-              e.preventDefault()
-              commitSelection(filtered[0])
-            }
-          }
-        }}
-        style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: 6,
-          padding: '6px 8px',
-          outline: 'none',
-          background: disabled ? '#f3f4f6' : '#fff',
-        }}
-      />
+
       {open && !disabled ? (
         <div
           style={{
