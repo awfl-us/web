@@ -73,6 +73,18 @@ export function makeApiClient(opts: ApiClientOptions) {
       return await getJson(path, opts, ropts)
     },
 
+    // Producer controls under /workflows/producer
+    async producerStart(body?: any, ropts?: RequestOptions) {
+      // POST /workflows/producer/start — requires Authorization and X-Project-Id headers
+      // Optional JSON body supports { sessionId, since_id, since_time, leaseMs, eventsHeartbeatMs, reconnectBackoffMs, workspaceId, workspaceTtlMs, localDocker, localDockerImage, localDockerArgs }
+      const payload = body && typeof body === 'object' ? body : {}
+      return await postJson('/workflows/producer/start', payload, opts, ropts)
+    },
+    async producerStop(ropts?: RequestOptions) {
+      // POST /workflows/producer/stop — requires Authorization and X-Project-Id headers
+      return await postJson('/workflows/producer/stop', {}, opts, ropts)
+    },
+
     // Tasks service under /workflows/tasks
     async tasksList(
       params: { sessionId?: string; status?: string; limit?: number; order?: 'asc' | 'desc' },
