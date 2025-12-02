@@ -46,6 +46,9 @@ export function useSessionsList(params: UseSessionsListParams): UseSessionsListR
   const [error, setError] = useState<string | null>(null)
   const bump = useRef(0)
 
+  const prevProjectIdRef = useRef<string | null | undefined>(undefined)
+  const firstLoadRef = useRef(true)
+
   const reload = useCallback(() => {
     bump.current++
   }, [])
@@ -63,10 +66,17 @@ export function useSessionsList(params: UseSessionsListParams): UseSessionsListR
         return
       }
 
-      // When projectId changes, immediately show loading and avoid flashing stale sessions
-      setLoading(true)
-      // Optionally clear sessions to prevent stale list flashes during project switches
-      if (projectId != null) setSessions([])
+      const projectChanged = prevProjectIdRef.current !== projectId
+      const hardLoad = firstLoadRef.current || projectChanged
+
+      // Hard loads (first load or project switch) show loading and may clear stale sessions
+      if (hardLoad) {
+        setLoading(true)
+        if (projectChanged && projectId != null) {
+          setSessions([])
+        }
+      }
+
       try {
         const client = makeApiClient({ idToken: idToken ?? undefined, skipAuth })
         const body: any = { collection, field, order, start, end }
@@ -100,7 +110,14 @@ export function useSessionsList(params: UseSessionsListParams): UseSessionsListR
       } catch (e: any) {
         if (!cancelled) setError(e?.message || String(e))
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          // Only toggle loading off if we previously turned it on for a hard load
+          if (firstLoadRef.current || prevProjectIdRef.current !== projectId) {
+            setLoading(false)
+          }
+          firstLoadRef.current = false
+          prevProjectIdRef.current = projectId
+        }
       }
     }
 

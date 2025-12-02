@@ -62,7 +62,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   }, [isMobile])
 
   // Load sessions via hook
-  const { sessions, loading: loadingList, error: listError } = useSessionsList({
+  const { sessions, loading: loadingList, error: listError, reload: reloadSessions } = useSessionsList({
     userId: user?.uid,
     idToken,
     projectId,
@@ -294,7 +294,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     } catch {}
   }
 
-  // Disable timed polling; rely solely on event-driven refresh
+  // Timed polling to keep messages, tasks, counts, and session titles in sync
   useSessionPolling({
     enabled: !!sel?.id,
     sessionId: sel?.id,
@@ -303,6 +303,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     reloadMessages: reload,
     reloadTaskCounts,
     reloadInlineTasks: reloadTasks,
+    reloadSessions,
     intervalMs: 1500,
   })
 
