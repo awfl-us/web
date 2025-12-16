@@ -3,6 +3,7 @@ import type { AgentRecord } from '../../../types/agent'
 import { useAgentsList } from './useAgentsList'
 import { useWorkflowExec } from '../../../core/public'
 import { resolveAgentWorkflow, type SessionLike } from '../utils/resolveAgentWorkflow'
+import { getWorkflowName } from '../../sessions/utils/getWorkflowName'
 
 export type UseAgentWorkflowExecuteParams = {
   sessionId?: string
@@ -27,20 +28,25 @@ export function useAgentWorkflowExecute(params: UseAgentWorkflowExecuteParams) {
 
   const resolved = useMemo(() => resolveAgentWorkflow({ pendingAgentId, session, agentsById }), [pendingAgentId, session, agentsById])
 
+  // Fallback: if no agent-linked or session-stored workflow, use sessionId-derived workflow name
+  const workflowName = useMemo(() => {
+    return resolved.workflowName || getWorkflowName(sessionId) || null
+  }, [resolved.workflowName, sessionId])
+
   const exec = useWorkflowExec({ sessionId, idToken, enabled })
 
-  const canExecute = Boolean(sessionId) && Boolean(resolved.workflowName)
+  const canExecute = Boolean(sessionId) && Boolean(workflowName)
   const error = exec.error || (agentsError ? String(agentsError) : null)
 
   const execute = async (inputParams?: Record<string, any>) => {
-    if (!canExecute || !resolved.workflowName) return
-    await exec.start(resolved.workflowName, inputParams, { sessionId, agentId: resolved.agentId || undefined })
+    if (!canExecute || !workflowName) return
+    await exec.start(workflowName, inputParams, { sessionId, agentId: resolved.agentId || undefined })
   }
 
   return {
     // Resolution info
     agentId: resolved.agentId,
-    workflowName: resolved.workflowName,
+    workflowName,
     canExecute,
 
     // Agents data state
