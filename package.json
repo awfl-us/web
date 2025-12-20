@@ -4,6 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/awfl-us/web"
+  },
+  "homepage": "https://github.com/awfl-us/web#readme",
+  "bugs": {
+    "url": "https://github.com/awfl-us/web/issues"
+  },
   "sideEffects": [
     "*.css"
   ],
