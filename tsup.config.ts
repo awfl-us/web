@@ -3,7 +3,8 @@ import cssModulesPlugin from 'esbuild-plugin-css-modules'
 
 export default defineConfig({
   // Build all source files so deep imports continue to resolve for dependents.
-  // Exclude tests, stories, and type decl files.
+  // Exclude tests, stories, type decl files, and any duplicate wrapper files that
+  // would collide with a sibling .tsx of the same basename.
   entry: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
@@ -11,6 +12,8 @@ export default defineConfig({
     '!src/**/*.spec.*',
     '!src/**/*.stories.*',
     '!src/**/__tests__/**',
+    // Avoid duplicate outputs from wrapper + implementation with same basename.
+    '!src/features/sessions/components/SessionSidebar.ts',
   ],
   outDir: 'dist',
   format: ['esm'],
