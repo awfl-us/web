@@ -1,31 +1,36 @@
 import { defineConfig } from 'tsup'
+import cssModulesPlugin from 'esbuild-plugin-css-modules'
 
 export default defineConfig({
   entry: [
-    'src/**/*.ts',
-    'src/**/*.tsx',
-    '!src/**/__tests__/**',
-    '!src/**/*.test.*',
-    '!src/**/*.spec.*',
-    '!src/**/mocks/**',
-    '!src/**/stories/**',
-    // Avoid duplicate basename collisions where a wrapper .ts re-exports a .tsx component
-    '!src/features/sessions/components/SessionSidebar.ts',
+    'src/**/public.ts',
+    'src/**/public.tsx',
   ],
   outDir: 'dist',
   format: ['esm'],
   dts: true,
   sourcemap: true,
   clean: true,
-  splitting: false, // keep per-file outputs stable; no shared chunks
+  splitting: false, // stable per-file outputs
   treeshake: true,
   target: 'es2022',
   external: ['react', 'react-dom', 'firebase'],
   tsconfig: 'tsconfig.app.json',
-  // Ensure any imported CSS (including CSS Modules) is injected as a <style> tag at runtime
-  injectStyle: true,
+
+  // Let the CSS Modules plugin handle injection; disable tsup's generic CSS inject.
+  injectStyle: false,
+
   esbuildOptions(options) {
     options.jsx = 'automatic'
-    options.outbase = 'src' // ensure dist mirrors src (drop the src/ prefix)
+    options.outbase = 'src' // mirror src structure under dist
   },
+
+  // Ensure CSS Modules compile to a default-export object and styles are injected.
+  esbuildPlugins: [
+    cssModulesPlugin({
+      inject: true,
+      namedExports: false, // default export object (supports `import styles from '...module.css'`)
+      localsConvention: 'camelCaseOnly',
+    }),
+  ],
 })
