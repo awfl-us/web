@@ -51,5 +51,8 @@ jobs:
       - name: Build library
         run: npm run build:lib
 
-      - name: Publish to npm (OIDC Trusted Publishing)
-        run: npm publish --provenance --access public --ignore-scripts
+      - name: Publish to npm (token-based with provenance)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+        run: npm publish --access public --provenance --ignore-scripts
