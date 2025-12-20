@@ -1,22 +1,32 @@
 {
-  "name": "awfl-web",
-  "private": true,
-  "version": "0.0.0",
+  "name": "@awfl/web",
+  "private": false,
+  "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
+  "sideEffects": ["*.css"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:lib": "tsup",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "check": "npm run typecheck && npm run lint",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "prepack": "npm run build:lib",
     "allow:firewall": "bash scripts/allow-macos-firewall.sh"
   },
   "dependencies": {
-    "firebase": "^12.2.1",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "firebase": "^12.2.1"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
@@ -28,10 +38,25 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "tsup": "^8.1.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2",
     "vitest": "^2.1.9"
+  },
+  "exports": {
+    "./*": "./dist/*.js"
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "dist/*"
+      ]
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "engines": {
     "node": ">=20.19.0"
