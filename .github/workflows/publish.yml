@@ -57,14 +57,7 @@ jobs:
 
       # Emit type declarations with tsc (declarations only)
       - name: Emit type declarations
-        run: >-
-          npx tsc
-          --project tsconfig.app.json
-          --declaration
-          --emitDeclarationOnly
-          --outDir dist
-          --rootDir src
-          --noEmit false
+        run: npx tsc -p tsconfig.types.json
 
       - name: Publish to npm (token-based with provenance)
         env:
