@@ -2,9 +2,15 @@ import { defineConfig } from 'tsup'
 import cssModulesPlugin from 'esbuild-plugin-css-modules'
 
 export default defineConfig({
+  // Build all source files so deep imports continue to resolve for dependents.
+  // Exclude tests, stories, and type decl files.
   entry: [
-    'src/**/public.ts',
-    'src/**/public.tsx',
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/*.test.*',
+    '!src/**/*.spec.*',
+    '!src/**/*.stories.*',
+    '!src/**/__tests__/**',
   ],
   outDir: 'dist',
   format: ['esm'],
