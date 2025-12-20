@@ -12,6 +12,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      # Give Node more heap to avoid OOM during large multi-entry builds
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,8 +51,20 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Build library
-        run: npm run build:lib
+      # Build JS only (skip d.ts in tsup to reduce memory use)
+      - name: Build library (JS only)
+        run: npm run build:lib -- --no-dts
+
+      # Emit type declarations with tsc (declarations only)
+      - name: Emit type declarations
+        run: >-
+          npx tsc
+          --project tsconfig.app.json
+          --declaration
+          --emitDeclarationOnly
+          --outDir dist
+          --rootDir src
+          --noEmit false
 
       - name: Publish to npm (token-based with provenance)
         env:
