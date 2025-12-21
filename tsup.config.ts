@@ -1,5 +1,7 @@
 import { defineConfig } from 'tsup'
-import cssModulesPlugin from 'esbuild-plugin-css-modules'
+// Use the css-modules plugin that supports runtime injection
+// Note: this is 'esbuild-css-modules-plugin' (NOT 'esbuild-plugin-css-modules')
+import cssModulesPlugin from 'esbuild-css-modules-plugin'
 
 export default defineConfig({
   // Build all source files so deep imports continue to resolve for dependents.
@@ -37,8 +39,11 @@ export default defineConfig({
   // Ensure CSS Modules compile to a default-export object and styles are injected.
   esbuildPlugins: [
     cssModulesPlugin({
+      // Only treat *.module.css as CSS Modules; global CSS is left alone
+      filter: /\.module\.css$/,
       inject: true,
-      namedExports: false, // default export object (supports `import styles from '...module.css'`)
+      // default export object (supports `import styles from '...module.css'`)
+      namedExports: false,
       localsConvention: 'camelCaseOnly',
     }),
   ],
