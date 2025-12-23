@@ -17,7 +17,9 @@ const input = await fg([
   '!src/main.tsx',
   '!src/App.tsx',
   '!src/pages/**',
-  '!src/components/**',
+  // Note: include src/components/** in the library build so deep imports like
+  // `@awfl/web/components/public` resolve for consumers.
+  // Keep hooks/pages excluded as app-only for now.
   '!src/hooks/**',
 
   // Avoid duplicate basename collision with implementation .tsx

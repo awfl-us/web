@@ -6,5 +6,5 @@ export type { YojMessage } from './context'
 export type { AgentRecord, AgentUpsertInput } from './agent'
 // Transitional re-export: ToolItem now lives under features/tools; keep this for compatibility
 export type { ToolItem } from '../features/tools/public'
-export type { TaskStatus } from './tasks'
+export type { TaskStatus } from '../features/tasks/types/tasks'
 export type { GitConfig } from './git'

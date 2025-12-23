@@ -6,7 +6,7 @@ export { SessionDetails as SessionDetail } from './sessions'
 export { SessionHeader } from './sessions/SessionHeader'
 export { YojMessageList } from './sessions/YojMessageList'
 
-export { TaskModal } from './tasks/TaskModal'
+export { TaskModal } from '../features/tasks/components/TaskModal'
 // Legacy AgentModal export removed; use features/agents/public instead
 
 export { ErrorBanner } from './common/ErrorBanner'

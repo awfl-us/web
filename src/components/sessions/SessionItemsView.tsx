@@ -3,7 +3,7 @@ import { TasksList } from '../tasks/TasksList'
 import { YojMessageList } from './YojMessageList'
 import { ErrorBanner } from '../common/ErrorBanner'
 import type { TaskRecord } from '../../hooks/useTasksList'
-import type { TaskStatus } from '../../types/tasks'
+import type { TaskStatus } from '../../features/tasks/types/tasks'
 
 interface SessionItemsViewProps {
   activeTaskStatus: TaskStatus | null

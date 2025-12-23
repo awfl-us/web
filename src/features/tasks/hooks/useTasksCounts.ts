@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { makeApiClient } from '../api/apiClient'
+import { makeApiClient } from '../../../api/apiClient'
 
 export type TasksCounts = {
   queued: number
