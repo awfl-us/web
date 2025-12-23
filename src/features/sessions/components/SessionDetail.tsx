@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type Ref, type FormEvent } from 'react'
 import { SessionHeader } from '../../../components/sessions/SessionHeader'
 import { SessionItemsView } from '../../../components/sessions/SessionItemsView'
 import { ErrorBanner } from '../../../components/common/ErrorBanner'
-import type { TaskRecord } from '../../../hooks/useTasksList'
+import type { TaskRecord } from '../../tasks/hooks/useTasksList'
 import type { TaskStatus } from '../../tasks/public'
 
 export interface SessionDetailProps {

@@ -1,8 +1,8 @@
 import { useEffect, useRef, type Ref } from 'react'
-import { TasksList } from '../tasks/TasksList'
+import { TasksList } from '../../features/tasks/components/TasksList'
 import { YojMessageList } from './YojMessageList'
 import { ErrorBanner } from '../common/ErrorBanner'
-import type { TaskRecord } from '../../hooks/useTasksList'
+import type { TaskRecord } from '../../features/tasks/hooks/useTasksList'
 import type { TaskStatus } from '../../features/tasks/types/tasks'
 
 interface SessionItemsViewProps {

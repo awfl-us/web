@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
-import { useTasksList } from '../hooks/useTasksList'
+import { useTasksList } from '../features/tasks/hooks/useTasksList'
 
 const statusOptions = ['All', 'Queued', 'In Progress', 'Done', 'Stuck'] as const
 

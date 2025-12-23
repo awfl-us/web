@@ -1,4 +1,4 @@
-import type { TaskRecord } from '../../hooks/useTasksList'
+import type { TaskRecord } from '../hooks/useTasksList'
 
 function statusBg(status?: string): { bg: string; border: string } {
   const s = (status || '').toLowerCase()
