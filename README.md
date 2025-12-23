@@ -5,6 +5,25 @@ AWFL Web is a React front‑end for exploring workflow "sessions", inspecting em
 This README gives a quick overview, how to set up and run locally, and development guidelines that align with the Sessions page architecture described in AGENT.md.
 
 
+## Using @awfl/web as a library (components + CSS)
+We publish the source as an ES module package with extracted CSS.
+
+Install
+- npm i @awfl/web
+
+Import once at app entry to load styles
+- import '@awfl/web/styles.css'
+
+Import components and hooks from feature public surfaces or deep paths
+- import { SessionSidebar, SessionDetail } from '@awfl/web/features/sessions/public'
+- import { useSessionsList } from '@awfl/web/features/sessions/public'
+
+Notes
+- CSS is extracted to dist/styles.css and referenced via the package subpath '@awfl/web/styles.css'.
+- Deep imports are supported via exports mapping; types resolve to dist via typesVersions.
+- Peer dependencies: react and react-dom >= 18.
+
+
 ## Features at a glance
 - Sessions: list, search/filter, select; auto-selects first on load
 - Yoj messages: windowed topic context for the selected session

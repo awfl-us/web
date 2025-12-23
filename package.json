@@ -13,7 +13,7 @@
     "url": "https://github.com/awfl-us/web/issues"
   },
   "sideEffects": [
-    "*.css"
+    "**/*.css"
   ],
   "files": [
     "dist"
@@ -21,14 +21,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:lib": "tsup",
+    "build:lib": "rollup -c",
+    "build:types": "tsc -p tsconfig.types.json",
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "check": "npm run typecheck && npm run lint",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepack": "npm run build:lib",
+    "prepack": "npm run build:lib && npm run build:types",
     "allow:firewall": "bash scripts/allow-macos-firewall.sh"
   },
   "dependencies": {
@@ -40,26 +41,29 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
-    "esbuild-css-modules-plugin": "^3.1.5",
-    "esbuild-plugin-css-modules": "^0.3.0",
-    "esbuild-plugin-postcss2": "^0.1.2",
     "eslint": "^9.33.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "fast-glob": "^3.3.3",
     "globals": "^16.3.0",
     "postcss": "^8.5.6",
     "postcss-modules": "^6.0.1",
-    "tsup": "^8.5.1",
+    "rollup": "^4.24.0",
+    "rollup-plugin-esbuild": "^6.2.1",
+    "rollup-plugin-postcss": "^4.0.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2",
     "vitest": "^2.1.9"
   },
   "exports": {
+    "./styles.css": "./dist/styles.css",
     "./*": "./dist/*.js"
   },
   "typesVersions": {
@@ -69,6 +73,7 @@
       ]
     }
   },
+  "style": "dist/styles.css",
   "publishConfig": {
     "access": "public",
     "provenance": true
