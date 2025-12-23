@@ -55,7 +55,8 @@ jobs:
       - name: Emit type declarations
         run: npm run build:types
 
-      - name: Publish to npm via OIDC provenance (no token)
+      - name: Publish to npm (token-based with provenance)
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
         run: npm publish --access public --provenance --ignore-scripts
