@@ -1,4 +1,5 @@
 import { getSelectedProjectId } from '../features/projects/public'
+import { getDefaultApiBase } from '../core/apiConfig'
 
 export type ApiClientOptions = {
   idToken?: string
@@ -13,9 +14,6 @@ export type RequestOptions = {
   // Optional per-request extra headers (e.g., x-consumer-id)
   extraHeaders?: Record<string, string>
 }
-
-// Determine default API base from environment. In dev, leave empty to use Vite proxy (/api).
-export const DEFAULT_API_BASE: string = (import.meta as any)?.env?.VITE_API_BASE || '/api'
 
 export function buildHeaders(opts: ApiClientOptions, ropts?: RequestOptions) {
   const headers: Record<string, string> = {
@@ -43,8 +41,9 @@ async function sendJsonInternal(
   ropts?: RequestOptions,
   allowBodyOnDelete?: boolean
 ) {
-  const base = opts.baseUrl ?? DEFAULT_API_BASE
-  const url = (base || '') + path
+  const baseFromConfig = getDefaultApiBase() || ''
+  const base = (opts.baseUrl ?? baseFromConfig) || ''
+  const url = base + path
   const init: RequestInit = {
     method,
     headers: buildHeaders(opts, ropts),

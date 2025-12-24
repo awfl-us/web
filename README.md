@@ -81,13 +81,39 @@ You can set the project cookie for scoping:
 - document.cookie = 'awfl.projectId=<your-project-id>; path=/'
 
 
-## API base URL (dev vs prod)
-- Development: leave VITE_API_BASE empty. The client will call relative paths like /api/... which are proxied by Vite to your local backend.
-- Production: set VITE_API_BASE to your backend origin (e.g., https://api.awfl.us). The client will call `${VITE_API_BASE}/api/...`.
+## Configuring the API base URL (runtime, bundler-agnostic)
+By default, the client calls relative paths like /api/... to work seamlessly with the dev proxy.
+You can configure an absolute base URL at runtime without coupling to a specific bundler.
 
-We provide defaults:
-- .env.development: VITE_API_BASE= (empty)
-- .env.production: VITE_API_BASE=https://api.awfl.us
+Preferred patterns
+- Runtime config API (works in any stack)
+  - Import once in your app entry and set it from your env of choice:
+    - Vite: setDefaultApiBase(import.meta.env.VITE_API_BASE || '')
+    - Next.js: setDefaultApiBase(process.env.NEXT_PUBLIC_API_BASE || '')
+  - Import path: `import { setDefaultApiBase } from '@awfl/web/core/public'`
+  - Behavior: empty values are ignored, so the library keeps '/api' in dev by default.
+
+- React provider (ergonomic for component trees)
+  - Wrap your app:
+    - <ApiProvider baseUrl="https://api.cornerstoneai.org">{children}</ApiProvider>
+  - Hooks/components can read/update at runtime via `useApiConfig()`.
+  - Import paths: `import { ApiProvider, useApiConfig } from '@awfl/web/core/public'`
+
+- Optional static HTML override (for plain HTML sites)
+  - Set a global in your index.html before your bundle:
+    - <script>window.__AWFL_API_BASE__ = 'https://api.example.com'</script>
+  - The library will pick it up automatically on load.
+
+Notes
+- Default remains '/api' to preserve Vite's dev proxy behavior.
+- The runtime setter/provider take precedence over any HTML global.
+- The library no longer reads import.meta.env/process.env directly for the API base, avoiding bundler-specific transforms in node_modules.
+
+
+## API base URL (legacy env guidance)
+If you previously relied on VITE_API_BASE at build time, migrate to one of the runtime options above. For reference only:
+- Development: leave VITE_API_BASE empty so calls use /api and are proxied.
+- Production: use a runtime setter (recommended) or ensure your app sets the base in a provider.
 
 
 ## CI/CD and deployment
