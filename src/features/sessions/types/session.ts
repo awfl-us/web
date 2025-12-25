@@ -7,4 +7,7 @@ export type Session = {
   summary?: string
   highlights?: string[]
   tags?: string[]
+  // Optional ephemeral metadata to aid UI/context before server config is persisted
+  agentId?: string | null
+  workflowName?: string | null
 }

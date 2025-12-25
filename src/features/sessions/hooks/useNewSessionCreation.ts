@@ -30,8 +30,6 @@ function generateUuid() {
 export function useNewSessionCreation(params: {
   userId?: string | null
   projectId?: string | null
-  // startWf(workflowName, { query }, { sessionId, agentId? })
-  startWf: (workflowName: string, input: { query: string }, opts?: { sessionId?: string; agentId?: string }) => Promise<any>
   // minimal surface used from agents api
   agentsApi: {
     linkSessionAgent: (sessionId: string, agentId: string) => Promise<any>
@@ -39,9 +37,8 @@ export function useNewSessionCreation(params: {
     listAgentTools: (name: string) => Promise<string[]>
     saveAgent: (input: { name: string; description: string; workflowName: string; tools: string[] }) => Promise<{ id?: string | null }>
   }
-  autoStart?: boolean
 }) {
-  const { userId, projectId, startWf, agentsApi, autoStart = true } = params
+  const { userId, projectId, agentsApi } = params
 
   const [ephemeralSessions, setEphemeralSessions] = useState<Session[]>([])
 
@@ -59,14 +56,14 @@ export function useNewSessionCreation(params: {
 
     // Insert ephemeral session so it appears immediately in the sidebar
     const nowIso = new Date().toISOString()
-    // Default title to sessionId (id)
-    setEphemeralSessions(prev => [{ id, title: id, updatedAt: nowIso }, ...prev])
+    // Default title to sessionId (id); include any known metadata immediately
+    setEphemeralSessions(prev => [{ id, title: id, updatedAt: nowIso, agentId: agentId ?? null, workflowName: workflowName ?? null }, ...prev])
 
     try {
       // Prefer linking to an existing agent if explicitly selected
       if (agentId) {
         await agentsApi.linkSessionAgent(id, agentId)
-        // Attempt to resolve agent's configured workflow for optional initial kick-off
+        // Attempt to resolve agent's configured workflow
         let wfName: string | null = null
         try {
           const ag = await agentsApi.getAgentById(agentId)
@@ -76,9 +73,8 @@ export function useNewSessionCreation(params: {
         }
         // Fallback to session-derived workflow if agent does not declare one
         if (!wfName) wfName = getWorkflowName(id) || null
-        if (autoStart && wfName) {
-          await startWf(wfName, { query: '' }, { sessionId: id, agentId: agentId || undefined })
-        }
+        // Update ephemeral session metadata to reflect the linkage
+        setEphemeralSessions(prev => prev.map(s => (s.id === id ? { ...s, agentId, workflowName: wfName } : s)))
         return { id, agentId, workflowName: wfName }
       }
 
@@ -95,10 +91,8 @@ export function useNewSessionCreation(params: {
         const newAgent = await agentsApi.saveAgent({ name: workflowName, description: '', workflowName, tools: defaultTools })
         if (newAgent?.id) {
           await agentsApi.linkSessionAgent(id, newAgent.id)
-          // Optionally kick off the selected workflow via the newly created agent
-          if (autoStart) {
-            await startWf(workflowName, { query: '' }, { sessionId: id, agentId: newAgent.id || undefined })
-          }
+          // Update ephemeral metadata with the newly created agent id and provided workflow
+          setEphemeralSessions(prev => prev.map(s => (s.id === id ? { ...s, agentId: newAgent.id || null, workflowName } : s)))
           return { id, agentId: newAgent.id || null, workflowName }
         }
         // Could not create/link an agent; still return the intended workflowName for immediate use
@@ -106,7 +100,7 @@ export function useNewSessionCreation(params: {
       }
     } catch (e) {
       // soft-fail; keep the ephemeral session so the user has an entry
-      console.warn('Failed to set up agent/workflow execution for new session', e)
+      console.warn('Failed to set up agent/workflow for new session', e)
     }
 
     return { id }

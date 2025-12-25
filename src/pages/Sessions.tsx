@@ -76,21 +76,18 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // Debounce query to reduce recomputation during fast typing
   const debouncedQuery = useDebouncedValue(query, 200)
 
-  // startWf ref indirection so we can provide it to new-session creation before exec hook is ready
+  // startWf ref indirection so we can provide it to consumers before exec hook is ready
   const startWfRef = useRef<(
     workflowName: string,
     input: { query: string },
     opts?: { sessionId?: string; agentId?: string }
   ) => Promise<any>>(() => Promise.resolve(undefined))
 
-  // Use new session creation hook (manages ephemeral sessions, agent linking, optional kickoff)
+  // Use new session creation hook (manages ephemeral sessions, agent linking; never auto-starts)
   const { ephemeralSessions, createNewSession } = useNewSessionCreation({
     userId: user?.uid || null,
     projectId,
-    // delegate to the ref (will be populated after exec hook mounts); autostart disabled here
-    startWf: (workflowName, input, opts) => startWfRef.current(workflowName, input, opts),
     agentsApi,
-    autoStart: false,
   })
 
   // Merge ephemeral + server sessions via shared utility
@@ -127,45 +124,28 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     else setPane('list')
   }, [isMobile, selectedId])
 
-  // Track the most recently created session's agent + workflow to avoid falling back to sessionId workflow before config loads
-  const [pendingNew, setPendingNew] = useState<{ sessionId: string; agentId?: string | null; workflowName?: string | null } | null>(null)
-  // Clear pending if selection moves to a different session
-  useEffect(() => {
-    if (!sel?.id) {
-      setPendingNew(null)
-      return
-    }
-    if (pendingNew && pendingNew.sessionId !== sel.id) {
-      setPendingNew(null)
-    }
-  }, [sel?.id])
-
-  // Server-backed session agent config (single source of truth for agent + workflow)
+  // Server-backed session agent config (single source of truth for agent + workflow after persistence)
   const agentConfig = useSessionAgentConfig({ idToken, sessionId: sel?.id, enabled: !!sel })
 
-  // Compute pending hints and session-like fallback
-  const pendingAgentForSel = sel?.id && pendingNew?.sessionId === sel.id ? pendingNew?.agentId ?? null : null
-  const pendingWfForSel = sel?.id && pendingNew?.sessionId === sel.id ? pendingNew?.workflowName ?? null : null
-  const sessionWorkflowName = getWorkflowName(sel?.id)
-
+  // Minimal session-like hint for execution resolution (prefer persisted config; fall back to ephemeral session fields)
   const sessionLike = useMemo(() => ({
-    agentId: agentConfig.mapping?.agentId ?? null,
-    workflowName: agentConfig.workflowName || pendingWfForSel || sessionWorkflowName || null,
-  }), [agentConfig.mapping?.agentId, agentConfig.workflowName, pendingWfForSel, sessionWorkflowName])
+    agentId: sel?.agentId ?? agentConfig.mapping?.agentId ?? null,
+    workflowName: agentConfig.workflowName ?? sel?.workflowName ?? null,
+  }), [sel?.agentId, sel?.workflowName, agentConfig.mapping?.agentId, agentConfig.workflowName])
 
   // Resolve effective agent/workflow and provide execution helpers via agents feature
   const awx = useAgentWorkflowExecute({
     sessionId: sel?.id,
     idToken,
     enabled: !!sel,
-    pendingAgentId: pendingAgentForSel,
+    // No pendingNew logic; rely on mergedSessions ephemeral data and persisted config
     session: sessionLike,
   })
 
   const effectiveWorkflowName = awx.workflowName || null
   const effectiveAgentId = awx.agentId || null
 
-  // Single shared workflow exec for arbitrary workflow names (used by tasks + new-session hook)
+  // Single shared workflow exec for arbitrary workflow names (used by tasks)
   const genericExec = useWorkflowExec({
     sessionId: sel?.id,
     idToken,
@@ -195,7 +175,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const agent = useAgentModalController({
     idToken,
     sessionId: sel?.id || null,
-    workflowName: sessionWorkflowName || null,
+    workflowName: getWorkflowName(sel?.id) || null,
     enabled: !!sel,
   })
 
@@ -443,7 +423,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
       <AgentModal
         open={agent.open}
         mode={agent.mode}
-        initial={agent.initial || { name: agentConfig.workflowName || sessionWorkflowName || '', description: '', workflowName: sessionWorkflowName || '', tools: [] }}
+        initial={agent.initial || { name: agentConfig.workflowName || getWorkflowName(sel?.id) || '', description: '', workflowName: getWorkflowName(sel?.id) || '', tools: [] }}
         tools={agent.tools}
         workflows={agent.workflows}
         workflowsLoading={agent.workflowsLoading}
@@ -476,9 +456,8 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         defaultWorkflowName={(useSessionAgentConfig({ idToken, sessionId: (mergedSessions[0] || null)?.id || null, enabled: newOpen && !!(mergedSessions[0] || null)?.id })).workflowName || getWorkflowName((mergedSessions[0] || null)?.id || '') || null}
         onClose={() => setNewOpen(false)}
         onCreate={async (input) => {
-          const { id, agentId, workflowName } = await createNewSession(input)
+          const { id } = await createNewSession(input)
           setSelectedId(id)
-          setPendingNew({ sessionId: id, agentId: agentId ?? null, workflowName: workflowName ?? null })
           setActiveTaskStatus(null)
           setNewOpen(false)
           if (isMobile) setPane('detail')
