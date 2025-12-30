@@ -4,6 +4,7 @@
 export { SessionSidebar } from './components/SessionSidebar.tsx'
 export { SessionDetail } from './components/SessionDetail'
 export { NewSessionModal } from './components/NewSessionModal'
+export { PromptComposer } from './components/PromptComposer'
 
 // Hooks (re-export via local wrappers)
 export { useSessionsList } from './hooks/useSessionsList'

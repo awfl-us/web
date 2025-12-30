@@ -5,6 +5,7 @@ export { FileSystemSidebar } from './components/FileSystemSidebar'
 export { default as default } from './components/FileSystemSidebar'
 export { SelectionToolbar } from './components/SelectionToolbar'
 export { FileUpload } from './components/FileUpload'
+export { FileUploadModal } from './components/FileUploadModal'
 
 // Hooks
 export { useFsList } from './hooks/useFsList'

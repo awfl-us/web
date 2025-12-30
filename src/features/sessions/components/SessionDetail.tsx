@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState, type Ref, type FormEvent } from 'react'
+import { useMemo, type Ref } from 'react'
 import { SessionHeader } from '../../../components/sessions/SessionHeader'
 import { SessionItemsView } from '../../../components/sessions/SessionItemsView'
 import { ErrorBanner } from '../../../components/common/ErrorBanner'
+import { PromptComposer } from './PromptComposer'
 import type { TaskRecord } from '../../tasks/hooks/useTasksList'
 import type { TaskStatus } from '../../tasks/public'
 
@@ -89,8 +90,6 @@ export function SessionDetail(props: SessionDetailProps) {
     execStatusError,
   } = props
 
-  const [text, setText] = useState('')
-
   // Rolling avg $/hr computed over the loaded messages window (SegKala: default 60m).
   // Span is based ONLY on messages that have a defined cost; summary/other messages
   // without cost are ignored for both total and span.
@@ -140,22 +139,6 @@ export function SessionDetail(props: SessionDetailProps) {
       return `$${ratePerHour.toFixed(2)}/hr`
     }
   }, [messages])
-
-  // Allow submitting even while a submission is in flight or workflow is running; backend queues queries.
-  const canSubmit = useMemo(() => {
-    return !promptDisabled && (text?.trim()?.length ?? 0) > 0
-  }, [promptDisabled, text])
-
-  const handleSubmit = useCallback(
-    async (e?: FormEvent) => {
-      e?.preventDefault()
-      if (!canSubmit) return
-      const payload = text.trim()
-      setText('')
-      await onSubmit(payload)
-    },
-    [canSubmit, onSubmit, text]
-  )
 
   return (
     <section
@@ -213,84 +196,15 @@ export function SessionDetail(props: SessionDetailProps) {
       ) : null}
 
       {/* Prompt composer */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.currentTarget.value)}
-            placeholder={promptPlaceholder || 'Type a prompt…'}
-            disabled={!!promptDisabled}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              padding: '8px 10px',
-              outline: 'none',
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                // let form handler manage submit; avoid adding newline
-                e.preventDefault()
-                handleSubmit()
-              }
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            style={{
-              borderRadius: 8,
-              border: '1px solid #10b981',
-              background: canSubmit ? '#10b981' : '#a7f3d0',
-              color: canSubmit ? 'white' : '#064e3b',
-              padding: '8px 12px',
-              cursor: canSubmit ? 'pointer' : 'not-allowed',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-            }}
-            aria-busy={submitting || undefined}
-          >
-            {submitting ? 'Submitting…' : 'Submit'}
-          </button>
-          {wfRunning ? (
-            <button
-              type="button"
-              onClick={() => onStop?.()}
-              style={{
-                borderRadius: 8,
-                border: '1px solid #b91c1c',
-                background: '#fee2e2',
-                color: '#7f1d1d',
-                padding: '8px 12px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Stop
-            </button>
-          ) : null}
-          {!!wfStatus && (
-            <span
-              title="Workflow status"
-              style={{
-                fontSize: 12,
-                color: '#111827',
-                background: '#f3f4f6',
-                border: '1px solid #e5e7eb',
-                borderRadius: 999,
-                padding: '2px 8px',
-                whiteSpace: 'nowrap',
-                alignSelf: 'center',
-              }}
-            >
-              {wfStatus}
-            </span>
-          )}
-        </div>
-      </form>
+      <PromptComposer
+        placeholder={promptPlaceholder || 'Type a prompt…'}
+        disabled={!!promptDisabled}
+        submitting={submitting}
+        wfStatus={wfStatus}
+        wfRunning={!!wfRunning}
+        onSubmit={onSubmit}
+        onStop={onStop}
+      />
     </section>
   )
 }
