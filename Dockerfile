@@ -4,7 +4,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# Avoid running lifecycle scripts (prepare/prepack) during dependency install
+RUN npm ci --ignore-scripts
 COPY . ./
 RUN npm run build
 
