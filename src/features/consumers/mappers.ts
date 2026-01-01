@@ -22,11 +22,17 @@ export function mapLockStatusToConsumerStatus(raw: any, selfConsumerId?: string 
     const expiresAt = (raw as any).expiresAt ?? null
     const now = typeof (raw as any).now === 'string' ? (raw as any).now : toIso((raw as any).now)
     const ownedByYou = !!(selfConsumerId && consumerId && selfConsumerId === consumerId)
-    return { locked, consumerId, consumerType, remainingMs, leaseMs, expiresAt, ownedByYou, now }
+    const statusMessage =
+      (raw as any).statusMessage ??
+      (raw as any).status_message ??
+      (raw as any)?.holder?.statusMessage ??
+      (raw as any)?.holder?.status_message ??
+      null
+    return { locked, consumerId, consumerType, remainingMs, leaseMs, expiresAt, ownedByYou, now, statusMessage }
   }
 
   // Newer shape:
-  // { ok, locked, holder: { consumerId, consumerType, leaseMs, acquiredAt, refreshedAt, expiresAt }, msRemaining, now? }
+  // { ok, locked, holder: { consumerId, consumerType, leaseMs, acquiredAt, refreshedAt, expiresAt }, msRemaining, now?, status_message? }
   if (raw && typeof raw === 'object' && ('holder' in raw || 'locked' in raw) && !('lock' in raw)) {
     const locked = Boolean((raw as any).locked)
     const holder = (raw as any).holder || {}
@@ -39,12 +45,18 @@ export function mapLockStatusToConsumerStatus(raw: any, selfConsumerId?: string 
     else if (typeof holder?.expiresAt === 'string') expiresAt = holder.expiresAt
     const remainingMs = Math.max(0, Number((raw as any).msRemaining ?? 0))
     const ownedByYou = !!(selfConsumerId && consumerId && selfConsumerId === consumerId)
+    const statusMessage =
+      (raw as any).status_message ??
+      (raw as any).statusMessage ??
+      holder?.status_message ??
+      holder?.statusMessage ??
+      null
 
-    return { locked, consumerId, consumerType, remainingMs, leaseMs, expiresAt, ownedByYou, now: nowIso }
+    return { locked, consumerId, consumerType, remainingMs, leaseMs, expiresAt, ownedByYou, now: nowIso, statusMessage }
   }
 
   // Previous shape per backend sample:
-  // { ok, active, now, lock: { consumerId, consumerType, leaseMs, acquiredAt, refreshedAt, expiresAt, expiresInMs } }
+  // { ok, active, now, lock: { consumerId, consumerType, leaseMs, acquiredAt, refreshedAt, expiresAt, expiresInMs }, status_message? }
   const active = Boolean(raw?.active)
   const lock = raw?.lock ?? {}
   const consumerId = lock?.consumerId ?? null
@@ -54,6 +66,7 @@ export function mapLockStatusToConsumerStatus(raw: any, selfConsumerId?: string 
   const expiresAtIso = typeof lock?.expiresAt === 'number' ? toIso(lock.expiresAt) : null
   const remainingMs = Math.max(0, Number(lock?.expiresInMs ?? 0))
   const ownedByYou = !!(selfConsumerId && consumerId && selfConsumerId === consumerId)
+  const statusMessage = raw?.status_message ?? raw?.statusMessage ?? lock?.status_message ?? lock?.statusMessage ?? null
 
   return {
     locked: active,
@@ -64,5 +77,6 @@ export function mapLockStatusToConsumerStatus(raw: any, selfConsumerId?: string 
     expiresAt: expiresAtIso,
     ownedByYou,
     now: nowIso,
+    statusMessage,
   }
 }

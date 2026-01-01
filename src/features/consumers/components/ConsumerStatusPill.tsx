@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useConsumerStatus } from '../hooks/useConsumerStatus'
@@ -46,22 +46,9 @@ function getOrMakeClientId(): string {
   }
 }
 
-// Overlay sequence configuration (~80s total)
-const CLOUD_START_MESSAGES = [
-  'Acquiring cloud compute..',
-  'Fetching cloud images..',
-  'Starting cloud instance..',
-  'Starting cloud consumer..',
-  'Syncing cloud storage..',
-  'Consuming events queue..',
-  'Cloud consumer started!'
-]
-// seconds per step summing to ~80s
-const CLOUD_START_DURATIONS_S = [12, 12, 14, 10, 12, 12, 8]
 const SLIDE_MS = 500
-const FINAL_AUTO_HIDE_MS = 1800
 
-function CloudStartOverlay({
+function StatusOverlay({
   visible,
   message,
   prevMessage,
@@ -74,7 +61,6 @@ function CloudStartOverlay({
   // When message changes, run a slide animation for prev -> current
   useEffect(() => {
     if (!visible || !message) return
-    // allow prev/current to mount, then trigger transition
     const id = requestAnimationFrame(() => setAnimPhase('entering'))
     return () => cancelAnimationFrame(id)
   }, [visible, message])
@@ -101,7 +87,6 @@ function CloudStartOverlay({
           minWidth: 320,
           maxWidth: '80vw',
           overflow: 'hidden',
-          // subtle backdrop for readability
           background: 'rgba(255,255,255,0.9)',
           color: '#111827',
           border: '1px solid rgba(0,0,0,0.06)',
@@ -174,12 +159,10 @@ export function ConsumerStatusPill({
   const { start, stop, loading: pending } = useProducerControls({ idToken, projectId, enabled })
 
   const type = status?.consumerType // 'LOCAL' | 'CLOUD' | null
-  // Treat the reported type as the source of truth for which side is active.
   const localActive = type === 'LOCAL'
   const cloudActive = type === 'CLOUD'
 
-  // Track the user's intended action during the in-flight request so the tooltip/label
-  // doesn't flip from "Starting…" to "Stopping…" just because the poll tick updated the lock.
+  // Track pending intent to stabilize labels during in-flight requests
   const [intent, setIntent] = useState<'start' | 'stop' | null>(null)
   useEffect(() => {
     if (!pending) setIntent(null)
@@ -197,59 +180,25 @@ export function ConsumerStatusPill({
     ? 'Disabled: Missing auth or project'
     : ''
 
-  // Overlay state
-  const [overlayVisible, setOverlayVisible] = useState(false)
-  const [overlayIdx, setOverlayIdx] = useState<number>(0)
-  const [overlayPrevIdx, setOverlayPrevIdx] = useState<number | null>(null)
-  const timersRef = useRef<number[]>([])
+  // Backend-provided status message drives overlay visibility and transitions
+  const backendMessage = (status?.statusMessage?.trim?.() ? status?.statusMessage!.trim() : null) || null
+  const [currMsg, setCurrMsg] = useState<string | null>(null)
+  const [prevMsg, setPrevMsg] = useState<string | null>(null)
 
-  function clearOverlayTimers() {
-    timersRef.current.forEach((id) => clearTimeout(id))
-    timersRef.current = []
-  }
-
-  function hideOverlaySoon(ms = FINAL_AUTO_HIDE_MS) {
-    const t = window.setTimeout(() => {
-      setOverlayVisible(false)
-      setOverlayPrevIdx(null)
-      setOverlayIdx(0)
-    }, ms)
-    timersRef.current.push(t)
-  }
-
-  function startOverlaySequence() {
-    clearOverlayTimers()
-    setOverlayVisible(true)
-    setOverlayPrevIdx(null)
-    setOverlayIdx(0)
-    // schedule steps
-    let acc = 0
-    for (let i = 1; i < CLOUD_START_MESSAGES.length; i++) {
-      acc += CLOUD_START_DURATIONS_S[i - 1] * 1000
-      const t = window.setTimeout(() => {
-        setOverlayPrevIdx((prev) => (prev === null ? 0 : prev + 1))
-        setOverlayIdx(i)
-        // when last step shown by schedule, schedule auto hide
-        if (i === CLOUD_START_MESSAGES.length - 1) {
-          hideOverlaySoon()
-        }
-      }, acc)
-      timersRef.current.push(t)
-    }
-  }
-
-  function fastForwardOverlayToFinal() {
-    if (!overlayVisible) return
-    clearOverlayTimers()
-    setOverlayPrevIdx(overlayIdx)
-    setOverlayIdx(CLOUD_START_MESSAGES.length - 1)
-    hideOverlaySoon()
-  }
-
+  // When backend message changes, update prev/curr for slide animation
   useEffect(() => {
-    // If component unmounts, stop timers
-    return () => clearOverlayTimers()
-  }, [])
+    if (backendMessage && backendMessage !== currMsg) {
+      setPrevMsg(currMsg)
+      setCurrMsg(backendMessage)
+    } else if (!backendMessage) {
+      // hide overlay and clear messages
+      if (currMsg !== null || prevMsg !== null) {
+        setPrevMsg(null)
+        setCurrMsg(null)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendMessage])
 
   async function onClick() {
     if (playDisabled) return
@@ -260,17 +209,10 @@ export function ConsumerStatusPill({
         if (res) console.log('[producer.stop] response:', res)
       } else {
         setIntent('start')
-        // Begin overlay sequence immediately on user intent
-        startOverlaySequence()
         try {
           const res = await start({})
           if (res) console.log('[producer.start] response:', res)
-          // Skip remaining statuses on resolve
-          fastForwardOverlayToFinal()
         } catch (e) {
-          // On failure, hide overlay quickly
-          clearOverlayTimers()
-          setOverlayVisible(false)
           console.warn('producer.start failed', e)
         }
       }
@@ -294,7 +236,6 @@ export function ConsumerStatusPill({
     display: 'inline-flex',
     border: '1px solid #d1d5db',
     borderRadius: 999,
-    // Allow tooltips to overflow the pill container
     overflow: 'visible',
     alignItems: 'stretch',
     background: 'white',
@@ -316,14 +257,10 @@ export function ConsumerStatusPill({
   const cloudStateStyle = cloudActive ? cloud.activeStyle : cloud.inactiveStyle
   const cloudStateClass = cloudActive ? cloud.activeClassName : cloud.inactiveClassName
 
-  // Button labels and titles should respect the intent while pending
   const normalActionLabel = cloudActive ? 'Stop cloud consumer' : 'Start cloud consumer'
   const pendingLabel = intent === 'stop' ? 'Stopping…' : intent === 'start' ? 'Starting…' : 'Working…'
   const buttonAriaLabel = pending ? pendingLabel : normalActionLabel
   const buttonTitle = disabledReason || (pending ? pendingLabel : normalActionLabel)
-
-  const currentMessage = overlayVisible ? CLOUD_START_MESSAGES[overlayIdx] ?? null : null
-  const prevMessage = overlayVisible && overlayPrevIdx !== null ? CLOUD_START_MESSAGES[overlayPrevIdx] ?? null : null
 
   return (
     <>
@@ -334,7 +271,6 @@ export function ConsumerStatusPill({
             ...baseSideStyle,
             ...localBaseStyle,
             borderRight: '1px solid #e5e7eb',
-            // Match outer rounding so background doesn't protrude
             borderTopLeftRadius: 999,
             borderBottomLeftRadius: 999,
             ...(local.style || {}),
@@ -357,7 +293,6 @@ export function ConsumerStatusPill({
           style={{
             ...baseSideStyle,
             ...cloudBaseStyle,
-            // Match outer rounding so background doesn't protrude
             borderTopRightRadius: 999,
             borderBottomRightRadius: 999,
             ...(cloud.style || {}),
@@ -374,7 +309,6 @@ export function ConsumerStatusPill({
               {labels?.cloud ?? 'Cloud'}
             </span>
           )}
-          {/* Start/Stop control: disabled when local holds the lock, when pending, or when auth/project missing */}
           {showControls && (
             <Tooltip
               content={disabledReason || (pending ? pendingLabel : normalActionLabel)}
@@ -406,7 +340,7 @@ export function ConsumerStatusPill({
         </div>
       </div>
 
-      <CloudStartOverlay visible={overlayVisible} message={currentMessage} prevMessage={prevMessage} />
+      <StatusOverlay visible={!!currMsg} message={currMsg} prevMessage={prevMsg} />
     </>
   )
 }

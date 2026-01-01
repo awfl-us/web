@@ -29,6 +29,7 @@ export function FileUpload(props: {
   accept?: string
   onSuccess?: (result: any, filepath: string) => void
   onError?: (message: string) => void
+  onFileSelect?: (file: File) => void
   // style slots
   containerClassName?: string
   inputClassName?: string
@@ -48,6 +49,7 @@ export function FileUpload(props: {
     accept,
     onSuccess,
     onError,
+    onFileSelect,
     containerClassName,
     inputClassName,
     buttonClassName,
@@ -76,9 +78,21 @@ export function FileUpload(props: {
 
   const resolvedPath = useCallback(
     (f: File): string => {
-      const base = targetPath || ''
+      const base = (targetPath || '').trim()
       if (!base) return f.name
       if (base.endsWith('/')) return `${base}${f.name}`
+
+      // Heuristic: if the last segment looks like a directory (no dot), append filename.
+      // This preserves existing behavior where callers may pass a session directory
+      // like "plain/uploads" (without a trailing slash).
+      try {
+        const parts = base.split('/')
+        const last = (parts.filter(Boolean).pop() ?? base).trim()
+        const hasDot = last.includes('.')
+        if (!hasDot) return `${base}/${f.name}`
+      } catch {}
+
+      // Otherwise treat base as a full filepath provided by the caller.
       return base
     },
     [targetPath]
@@ -91,7 +105,10 @@ export function FileUpload(props: {
     setFile(f)
     setError(null)
     setProgress(0)
-  }, [])
+    if (f && onFileSelect) {
+      try { onFileSelect(f) } catch {}
+    }
+  }, [onFileSelect])
 
   const readFileAsText = useCallback((f: File, signal?: AbortSignal) => {
     return new Promise<string>((resolve, reject) => {

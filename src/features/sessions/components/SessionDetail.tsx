@@ -204,6 +204,9 @@ export function SessionDetail(props: SessionDetailProps) {
         wfRunning={!!wfRunning}
         onSubmit={onSubmit}
         onStop={onStop}
+        // Ensure upload modal saves to sessions/{sessionId}/{filename}
+        uploadIdToken={idToken || null}
+        uploadSessionId={sessionId || null}
       />
     </section>
   )

@@ -9,4 +9,6 @@ export interface ConsumerStatus {
   expiresAt: string | null
   ownedByYou?: boolean
   now: string
+  // Optional backend-provided transient status message for UX overlays
+  statusMessage?: string | null
 }

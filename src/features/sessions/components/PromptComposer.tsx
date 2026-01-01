@@ -25,7 +25,8 @@ export interface PromptComposerProps {
   showUploadButton?: boolean
   onOpenUpload?: () => void // if provided, clicking the upload button calls this instead of showing the built-in modal
   uploadIdToken?: string | null
-  uploadTargetPath?: string
+  uploadSessionId?: string | null // when provided, uploads go to sessions/{sessionId}/{filename}
+  uploadTargetPath?: string // optional override when no session id is provided
   uploadAccept?: string
   onUploadSuccess?: (result: any, filepath: string) => void
   onUploadError?: (message: string) => void
@@ -65,6 +66,7 @@ export function PromptComposer(props: PromptComposerProps) {
     showUploadButton = true,
     onOpenUpload,
     uploadIdToken,
+    uploadSessionId,
     uploadTargetPath,
     uploadAccept,
     onUploadSuccess,
@@ -241,6 +243,7 @@ export function PromptComposer(props: PromptComposerProps) {
         <FileUploadModal
           open={uploadOpen}
           idToken={uploadIdToken || undefined}
+          sessionId={uploadSessionId || undefined}
           targetPath={uploadTargetPath}
           accept={uploadAccept}
           onClose={() => setUploadOpen(false)}

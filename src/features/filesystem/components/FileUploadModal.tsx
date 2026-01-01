@@ -4,6 +4,9 @@ import { FileUpload } from './FileUpload'
 export interface FileUploadModalProps {
   open: boolean
   idToken?: string | null
+  // If sessionId is provided, destination will be sessions/{sessionId}/{filename}
+  sessionId?: string | null
+  // Optional override when no sessionId is provided; if omitted, defaults to 'sessions/'
   targetPath?: string
   accept?: string
   onClose: () => void
@@ -16,16 +19,18 @@ export interface FileUploadModalProps {
 }
 
 /**
- * FileUploadModal
+ * FileUploadModal (simplified)
  *
  * Minimal, self-contained modal wrapper for the Filesystem FileUpload component.
- * No external UI dependencies. Renders a fixed backdrop and a centered panel.
+ * No user-editable path input. The destination path is derived from sessionId
+ * when provided (sessions/{sessionId}/), otherwise from targetPath or 'sessions/'.
  */
 export function FileUploadModal(props: FileUploadModalProps) {
   const {
     open,
     idToken,
-    targetPath = 'plain/uploads/',
+    sessionId,
+    targetPath,
     accept,
     onClose,
     onSuccess,
@@ -45,6 +50,14 @@ export function FileUploadModal(props: FileUploadModalProps) {
 
   if (!open) return null
 
+  // Resolve destination base path (directory) ending with '/'
+  const basePath = (sessionId && String(sessionId).trim().length)
+    ? `sessions/${sessionId}/`
+    : (() => {
+        const base = (targetPath || 'sessions/').trim()
+        return base.endsWith('/') ? base : `${base}/`
+      })()
+
   // Inline styled modal to avoid cross-feature styling deps
   return (
     <div
@@ -59,7 +72,7 @@ export function FileUploadModal(props: FileUploadModalProps) {
     >
       <div
         style={{
-          minWidth: 320, maxWidth: 480, width: '90%', background: 'white', color: '#111827',
+          minWidth: 320, maxWidth: 520, width: '90%', background: 'white', color: '#111827',
           borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.25)', padding: 16,
           display: 'flex', flexDirection: 'column', gap: 12,
           ...containerStyle,
@@ -80,9 +93,11 @@ export function FileUploadModal(props: FileUploadModalProps) {
             </svg>
           </button>
         </div>
+
+        {/* Simple upload (no path input); filename will be appended to basePath */}
         <FileUpload
           idToken={idToken}
-          targetPath={targetPath}
+          targetPath={basePath}
           accept={accept}
           onSuccess={handleSuccess}
           onError={onError}
