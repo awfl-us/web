@@ -65,6 +65,22 @@ export function makeApiClient(opts: ApiClientOptions) {
       }
       return await postJson('/workflows/projects', payload, opts, ropts)
     },
+    async projectsUpdate(id: string, body: { remote?: string | null; name?: string | null; live?: boolean | null }, ropts?: RequestOptions) {
+      // Update a project via PATCH /workflows/projects/:id
+      if (!id) throw new Error('projectsUpdate: id is required')
+      const payload: any = {}
+      if (body && typeof body === 'object') {
+        if (body.remote != null) payload.remote = body.remote
+        if (body.name != null) payload.name = String(body.name)
+        if (body.live != null) payload.live = !!body.live
+      }
+      return await patchJson(`/workflows/projects/${encodeURIComponent(id)}`, payload, opts, ropts)
+    },
+    async projectsDelete(id: string, ropts?: RequestOptions) {
+      // Delete a project via DELETE /workflows/projects/:id
+      if (!id) throw new Error('projectsDelete: id is required')
+      return await deleteJson(`/workflows/projects/${encodeURIComponent(id)}`, opts, ropts)
+    },
 
     // Consumer lock status under /workflows/projects/:projectId/consumer-lock/status
     async consumerLockStatus(projectId: string, ropts?: RequestOptions) {

@@ -5,7 +5,7 @@ import Tasks from './pages/Tasks'
 import IntegrationsGitHub from './pages/IntegrationsGitHub'
 import Stats from './pages/Stats'
 import { useAuth } from './auth/AuthProvider'
-import { useProjectsList, getSelectedProjectId, setSelectedProjectId, NewProjectModal } from './features/projects/public'
+import { useProjectsList, getSelectedProjectId, setSelectedProjectId, NewProjectModal, EditProjectModal } from './features/projects/public'
 import { SettingsPage, useCredsApi } from './features/settings/public'
 import { InstructionsOverview } from './features/instructions/public'
 import { ConsumerStatusPill } from './features/consumers/public'
@@ -132,8 +132,9 @@ function App() {
   const closeBtnRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
-  // New project modal state
+  // New/edit project modal state
   const [newOpen, setNewOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   useEffect(() => {
     if (!mobileOpen) return
@@ -154,6 +155,8 @@ function App() {
       prev?.focus?.()
     }
   }, [mobileOpen])
+
+  const currentProject = projects.find(p => p.id === projectId) || null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', minHeight: 0 }}>
@@ -216,6 +219,15 @@ function App() {
             ))}
             <option value="__manage__">Manage…</option>
           </select>
+          <button
+            onClick={() => setEditOpen(true)}
+            title="Edit selected project"
+            aria-label="Edit selected project"
+            disabled={!currentProject}
+            style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', background: currentProject ? 'white' : '#f9fafb', color: '#374151' }}
+          >
+            ✎
+          </button>
 
           {/* Consumer status pill (only when authed and a project is selected) */}
           {user && projectId ? (
@@ -280,18 +292,29 @@ function App() {
               </button>
 
               <label style={{ fontSize: 12, color: '#374151' }}>Project</label>
-              <select
-                value={projectId || ''}
-                onChange={handleProjectSelect}
-                title="Select GitHub project or manage settings"
-                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}
-              >
-                <option value="">{loadingProjects ? 'Loading…' : projects.length ? 'Select project…' : 'No projects'}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name || p.remote || p.id}</option>
-                ))}
-                <option value="__manage__">Manage…</option>
-              </select>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <select
+                  value={projectId || ''}
+                  onChange={handleProjectSelect}
+                  title="Select GitHub project or manage settings"
+                  style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white', flex: '1 1 auto' }}
+                >
+                  <option value="">{loadingProjects ? 'Loading…' : projects.length ? 'Select project…' : 'No projects'}</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name || p.remote || p.id}</option>
+                  ))}
+                  <option value="__manage__">Manage…</option>
+                </select>
+                <button
+                  onClick={() => { setEditOpen(true); }}
+                  title="Edit selected project"
+                  aria-label="Edit selected project"
+                  disabled={!currentProject}
+                  style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', background: currentProject ? 'white' : '#f9fafb', color: '#374151', flexShrink: 0 }}
+                >
+                  ✎
+                </button>
+              </div>
 
               {user && projectId ? (
                 <div>
@@ -311,6 +334,30 @@ function App() {
         onCreated={(proj) => {
           setSelectedProjectId(proj.id)
           setProjectId(proj.id)
+          reloadProjects()
+        }}
+      />
+
+      {/* Edit project modal */}
+      <EditProjectModal
+        idToken={idToken}
+        open={editOpen}
+        project={currentProject}
+        onClose={() => setEditOpen(false)}
+        onUpdated={(proj) => {
+          // Keep selection; just refresh list/labels
+          if (proj?.id) {
+            setSelectedProjectId(proj.id)
+            setProjectId(proj.id)
+          }
+          reloadProjects()
+        }}
+        onDeleted={(deletedId) => {
+          // Clear selection if the current project was deleted
+          if (deletedId && deletedId === projectId) {
+            setSelectedProjectId('')
+            setProjectId('')
+          }
           reloadProjects()
         }}
       />
