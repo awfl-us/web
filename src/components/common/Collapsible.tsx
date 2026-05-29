@@ -22,47 +22,65 @@ export function ChevronIcon({ direction = 'down', size = 12 }: { direction?: Che
   )
 }
 
+export interface CollapsibleProps {
+  children: React.ReactNode
+  maxHeight?: number
+  expanded?: boolean
+  defaultExpanded?: boolean
+  onExpandedChange?: (expanded: boolean) => void
+}
+
 // Small helper to render collapsible content for very tall messages
-export function Collapsible(props: { children: React.ReactNode; maxHeight?: number }) {
-  const { children, maxHeight = 320 } = props
+export function Collapsible(props: CollapsibleProps) {
+  const { children, maxHeight = 320, expanded, defaultExpanded = false, onExpandedChange } = props
   const contentRef = useRef<HTMLDivElement | null>(null)
   const [isOverflowing, setIsOverflowing] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
+
+  const isControlled = typeof expanded === 'boolean'
+  const resolvedExpanded = isControlled ? !!expanded : internalExpanded
+
+  useEffect(() => {
+    if (!isControlled) setInternalExpanded(defaultExpanded)
+  }, [defaultExpanded, isControlled])
 
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
     const check = () => {
-      const over = el.scrollHeight > maxHeight + 2 // small epsilon
+      const over = el.scrollHeight > maxHeight + 2
       setIsOverflowing(over)
     }
     check()
-    // Re-check on resize in case fonts/layout change
     const ro = new ResizeObserver(() => check())
     ro.observe(el)
     return () => ro.disconnect()
-  }, [maxHeight])
+  }, [maxHeight, children, resolvedExpanded])
 
   const containerStyle: React.CSSProperties = useMemo(
     () => ({
       position: 'relative',
-      maxHeight: expanded ? 'none' : maxHeight,
-      overflow: expanded ? 'visible' : 'hidden',
+      maxHeight: resolvedExpanded ? 'none' : maxHeight,
+      overflow: resolvedExpanded ? 'visible' : 'hidden',
     }),
-    [expanded, maxHeight]
+    [resolvedExpanded, maxHeight]
   )
 
-  function toggle() {
-    // Dispatch a bubbling event so scroll containers can treat this as a user interaction
+  function setExpandedState(next: boolean) {
     contentRef.current?.dispatchEvent(new CustomEvent('awfl:user-content-expand', { bubbles: true }))
-    setExpanded(v => !v)
+    if (!isControlled) setInternalExpanded(next)
+    onExpandedChange?.(next)
+  }
+
+  function toggle() {
+    setExpandedState(!resolvedExpanded)
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div ref={contentRef} style={containerStyle}>
         {children}
-        {!expanded && isOverflowing ? (
+        {!resolvedExpanded && isOverflowing ? (
           <div
             style={{
               position: 'absolute',
@@ -80,9 +98,9 @@ export function Collapsible(props: { children: React.ReactNode; maxHeight?: numb
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <button
             type="button"
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Collapse' : 'Expand'}
-            title={expanded ? 'Collapse' : 'Expand'}
+            aria-expanded={resolvedExpanded}
+            aria-label={resolvedExpanded ? 'Collapse' : 'Expand'}
+            title={resolvedExpanded ? 'Collapse' : 'Expand'}
             onClick={toggle}
             style={{
               padding: 4,
@@ -99,13 +117,13 @@ export function Collapsible(props: { children: React.ReactNode; maxHeight?: numb
               lineHeight: 1,
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'
+              ;(e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'
+              ;(e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'
             }}
           >
-            {expanded ? <ChevronIcon direction="up" /> : <ChevronIcon direction="down" />}
+            {resolvedExpanded ? <ChevronIcon direction="up" /> : <ChevronIcon direction="down" />}
           </button>
         </div>
       ) : null}

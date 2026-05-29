@@ -17,6 +17,8 @@ export interface SessionDetailProps {
   onEditAgent?: () => void
   activeStatus: TaskStatus | null
   onBack?: () => void
+  // New: right-side extras area (e.g., Model selector)
+  extrasRight?: React.ReactNode
 
   // Items (messages/tasks)
   execError?: string | null
@@ -88,6 +90,7 @@ export function SessionDetail(props: SessionDetailProps) {
     onSubmit,
     onStop,
     execStatusError,
+    extrasRight,
   } = props
 
   // Rolling avg $/hr computed over the loaded messages window (SegKala: default 60m).
@@ -162,6 +165,7 @@ export function SessionDetail(props: SessionDetailProps) {
         onEditAgent={onEditAgent}
         avgUsdPerHourText={avgUsdPerHourText || undefined}
         onBack={onBack}
+        extrasRight={extrasRight}
       />
 
       {execError ? (

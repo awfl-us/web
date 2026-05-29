@@ -271,5 +271,17 @@ export function makeApiClient(opts: ApiClientOptions) {
       if (!provider) throw new Error('credsDelete: provider is required')
       return await deleteJson(`/workflows/creds/${encodeURIComponent(provider)}`, opts, ropts)
     },
+
+    // LLM usage — project hourly aggregates
+    async llmUsageProjectHourly(params: { start: string; end: string }, ropts?: RequestOptions) {
+      if (!params?.start) throw new Error('llmUsageProjectHourly: start is required (YYYYMMDDHH)')
+      if (!params?.end) throw new Error('llmUsageProjectHourly: end is required (YYYYMMDDHH)')
+      const q = new URLSearchParams()
+      q.set('start', params.start)
+      q.set('end', params.end)
+      const qs = `?${q.toString()}`
+      // Authorization and x-project-id are set by http.ts; do not send x-user-id here.
+      return await getJson(`/workflows/llm/usage/project/hourly${qs}`, opts, ropts)
+    },
   }
 }

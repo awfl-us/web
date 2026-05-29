@@ -13,6 +13,8 @@ import {
   useNewSessionAgents,
   useNewSessionCreation,
   mergeSessions,
+  ModelSelector,
+  useSessionModel,
 } from '../features/sessions/public'
 import { TaskModal } from '../features/tasks/public'
 import { AgentModal, useAgentModalController, useSessionAgentConfig, useAgentsApi, useAgentWorkflowExecute } from '../features/agents/public'
@@ -145,6 +147,9 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const effectiveWorkflowName = awx.workflowName || null
   const effectiveAgentId = awx.agentId || null
 
+  // Per-session model selection (persisted locally)
+  const { model, setModel, options: modelOptions } = useSessionModel({ sessionId: sel?.id || null, enabled: !!sel })
+
   // Single shared workflow exec for arbitrary workflow names (used by tasks)
   const genericExec = useWorkflowExec({
     sessionId: sel?.id,
@@ -165,11 +170,11 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
       const sid = opts?.sessionId ?? currentSessionIdRef.current ?? undefined
       return genericExec.start(
         workflowName,
-        { query: input?.query ?? '' },
+        { query: input?.query ?? '', model },
         { ...opts, sessionId: sid }
       )
     }
-  }, [genericExec.start])
+  }, [genericExec.start, model])
 
   // Agent modal controller (encapsulated in features/agents)
   const agent = useAgentModalController({
@@ -262,7 +267,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     if (!effectiveWorkflowName) return
     try {
       setSubmitting(true)
-      await awx.execute({ query: text })
+      await awx.execute({ query: text, model })
     } finally {
       setSubmitting(false)
     }
@@ -408,6 +413,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             assistantName={assistantName}
             hideExecGutter={isMobile}
             execStatusError={execStatusError}
+            extrasRight={<ModelSelector model={model} options={modelOptions} onChange={setModel} />}
           />
         )}
       </main>

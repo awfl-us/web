@@ -21,7 +21,7 @@ function decodeCliResult(resp: any): { output: string; error: string } {
 
 export function useFileEditorController(params: { idToken?: string | null; enabled?: boolean; sessionId?: string | null }) {
   const { idToken, enabled = true } = params
-  const { runCommand } = useToolExec({ idToken, enabled })
+  const { runCommand, readFile } = useToolExec({ idToken, enabled })
 
   const [open, setOpen] = useState(false)
   const [path, setPath] = useState<string | null>(null)
@@ -35,13 +35,13 @@ export function useFileEditorController(params: { idToken?: string | null; enabl
 
   const load = useCallback(
     async (p: string, signal: AbortSignal) => {
-      const cmd = `cat ${shQuotePath(`plain/${p}`)}`
-      const resp = await runCommand(cmd, { signal })
+      // Use the dedicated READ_FILE tool to avoid stdout truncation from RUN_COMMAND
+      const resp = await readFile(`plain/${p}`, { signal })
       const { output, error } = decodeCliResult(resp)
       if (error) throw new Error(error)
       return { content: output }
     },
-    [runCommand]
+    [readFile]
   )
 
   const save = useCallback(

@@ -3,13 +3,14 @@ import './App.css'
 import Sessions from './pages/Sessions'
 import Tasks from './pages/Tasks'
 import IntegrationsGitHub from './pages/IntegrationsGitHub'
+import Stats from './pages/Stats'
 import { useAuth } from './auth/AuthProvider'
 import { useProjectsList, getSelectedProjectId, setSelectedProjectId, NewProjectModal } from './features/projects/public'
 import { SettingsPage, useCredsApi } from './features/settings/public'
 import { InstructionsOverview } from './features/instructions/public'
 import { ConsumerStatusPill } from './features/consumers/public'
 
-type Route = 'home' | 'sessions' | 'tasks' | 'integrations-github' | 'settings'
+type Route = 'home' | 'sessions' | 'tasks' | 'stats' | 'integrations-github' | 'settings'
 
 function Home() {
   return (
@@ -195,6 +196,12 @@ function App() {
           >
             Tasks
           </button>
+          <button
+            onClick={() => setRoute('stats')}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: route === 'stats' ? '#eef2ff' : 'white' }}
+          >
+            Stats
+          </button>
 
           {/* GitHub project dropdown replaces the old button */}
           <select
@@ -265,6 +272,12 @@ function App() {
               >
                 Tasks
               </button>
+              <button
+                onClick={() => { setRoute('stats'); setMobileOpen(false) }}
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: route === 'stats' ? '#eef2ff' : 'white', textAlign: 'left' }}
+              >
+                Stats
+              </button>
 
               <label style={{ fontSize: 12, color: '#374151' }}>Project</label>
               <select
@@ -314,6 +327,8 @@ function App() {
             <Sessions projectId={projectId || null} />
           ) : route === 'tasks' ? (
             <Tasks />
+          ) : route === 'stats' ? (
+            <Stats />
           ) : route === 'integrations-github' ? (
             <IntegrationsGitHub />
           ) : route === 'settings' ? (
@@ -323,7 +338,7 @@ function App() {
           )
         ) : (
           <div style={{ display: 'grid', gap: 8, padding: 16 }}>
-            <div style={{ color: '#374151' }}>Please sign in to view {route === 'sessions' ? 'Sessions' : route === 'tasks' ? 'Tasks' : route === 'settings' ? 'Settings' : 'GitHub'}.</div>
+            <div style={{ color: '#374151' }}>Please sign in to view {route === 'sessions' ? 'Sessions' : route === 'tasks' ? 'Tasks' : route === 'settings' ? 'Settings' : route === 'stats' ? 'Stats' : 'GitHub'}.</div>
             <div>
               <button
                 onClick={signIn}

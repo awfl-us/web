@@ -5,6 +5,7 @@ export { SessionSidebar } from './components/SessionSidebar.tsx'
 export { SessionDetail } from './components/SessionDetail'
 export { NewSessionModal } from './components/NewSessionModal'
 export { PromptComposer } from './components/PromptComposer'
+export { ModelSelector } from './components/ModelSelector'
 
 // Hooks (re-export via local wrappers)
 export { useSessionsList } from './hooks/useSessionsList'
@@ -13,6 +14,7 @@ export { useSessionPolling } from './hooks/useSessionPolling'
 export { useSessionSelection } from './hooks/useSessionSelection'
 export { useNewSessionAgents } from './hooks/useNewSessionAgents'
 export { useNewSessionCreation } from './hooks/useNewSessionCreation'
+export { useSessionModel } from './hooks/useSessionModel'
 
 // Utils and mappers (re-export via local wrappers)
 export { filterSessionsByQuery } from './utils/filterSessionsByQuery'

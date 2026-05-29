@@ -18,8 +18,10 @@ export function SessionHeader(props: {
   onEditAgent?: () => void
   avgUsdPerHourText?: string | null
   onBack?: () => void
+  // New: right-side extras area (e.g., Model selector)
+  extrasRight?: React.ReactNode
 }) {
-  const { title, counts, onTitleClick, onCountClick, activeStatus, onAddTask, onEditAgent, avgUsdPerHourText, onBack } = props
+  const { title, counts, onTitleClick, onCountClick, activeStatus, onAddTask, onEditAgent, avgUsdPerHourText, onBack, extrasRight } = props
 
   const Badge = ({
     label,
@@ -115,7 +117,7 @@ export function SessionHeader(props: {
         </div>
       </div>
 
-      {/* Right/bottom: task counts + add task, $/hr, and edit agent icon */}
+      {/* Right/bottom: task counts + add task, $/hr, model selector, and edit agent icon */}
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
         {counts ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -164,6 +166,9 @@ export function SessionHeader(props: {
             {avgUsdPerHourText}
           </div>
         ) : null}
+
+        {/* Right-side extras (e.g., Model selector) */}
+        {extrasRight ? <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{extrasRight}</div> : null}
 
         {onEditAgent ? (
           <button
