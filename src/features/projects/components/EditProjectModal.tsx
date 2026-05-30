@@ -36,6 +36,7 @@ export function EditProjectModal(props: EditProjectModalProps) {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
+    if (!project) return
     const updated = await update(project.id, { name: trimmed, remote: remote.trim() || null })
     if (updated) {
       onUpdated?.(updated)

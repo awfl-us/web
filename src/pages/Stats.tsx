@@ -21,7 +21,7 @@ export default function StatsPage() {
 
   const enabled = !!(idToken || (import.meta as any)?.env?.VITE_SKIP_AUTH)
 
-  const { series, rows, loading, error, reload } = useProjectHourlyUsage({
+  const { series, loading, error, reload } = useProjectHourlyUsage({
     idToken,
     start: startMs,
     end: endMs,

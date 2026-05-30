@@ -118,6 +118,7 @@ export function useScrollHome({
 
     const node = containerRef.current
     if (!node) return
+    const nodeEl: HTMLElement = node
 
     const prev = prevCountRef.current
     const count = itemCount || 0
@@ -127,8 +128,7 @@ export function useScrollHome({
     // Snapshot current (post-render) metrics and previously stored metrics
     const prevHeight = prevScrollRef.current.height
     const prevTop = prevScrollRef.current.top
-    const newHeight = node.scrollHeight
-    const newTop = node.scrollTop
+    const newHeight = nodeEl.scrollHeight
     const deltaHeight = newHeight - prevHeight
 
     function scrollToHome(behavior: ScrollBehavior) {
@@ -137,20 +137,20 @@ export function useScrollHome({
         if (anchor && 'scrollIntoView' in anchor) {
           anchor.scrollIntoView({ behavior, block: 'end' })
         } else {
-          node.scrollTo({ top: node.scrollHeight, behavior })
+          nodeEl.scrollTo({ top: nodeEl.scrollHeight, behavior })
         }
       } else {
         const anchor = anchorRef?.current
         if (anchor && 'scrollIntoView' in anchor) {
           anchor.scrollIntoView({ behavior, block: 'start' })
         } else {
-          node.scrollTo({ top: 0, behavior })
+          nodeEl.scrollTo({ top: 0, behavior })
         }
       }
     }
 
     // Measurement at decision time (may reflect content shifts)
-    const { atHome: nowAtHome, awaySticky } = compute(node)
+    const { atHome: nowAtHome, awaySticky } = compute(nodeEl)
     const wasAtHome = lastObservedAtHomeRef.current
     const userScrolledAway = awayRef.current
 
@@ -164,7 +164,7 @@ export function useScrollHome({
       // Adjust by the delta in scrollHeight so the same content stays in view even if content
       // was added/removed above the viewport.
       if (deltaHeight !== 0) {
-        node.scrollTop = prevTop + deltaHeight
+        nodeEl.scrollTop = prevTop + deltaHeight
       }
       // Do not auto-scroll when user is away.
     } else if (hasCountChange) {
@@ -177,7 +177,7 @@ export function useScrollHome({
     // Update refs for next pass
     prevCountRef.current = count
     // After any manual scroll adjustments, re-measure current metrics for the next diff
-    prevScrollRef.current = { height: node.scrollHeight, top: node.scrollTop }
+    prevScrollRef.current = { height: nodeEl.scrollHeight, top: nodeEl.scrollTop }
   }, [itemCount, enabled, home, anchorRef, threshold, stickyAwayThreshold, containerRef])
 
   return { isAtHome }

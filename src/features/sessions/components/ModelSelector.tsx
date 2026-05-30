@@ -1,5 +1,3 @@
-import React from 'react'
-
 export type ModelOption = { value: string; label: string }
 
 export function ModelSelector(props: {
