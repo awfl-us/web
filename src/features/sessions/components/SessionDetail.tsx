@@ -48,7 +48,7 @@ export interface SessionDetailProps {
   wfStatus?: string | null
   wfRunning?: boolean
   submitting?: boolean
-  onSubmit: (text: string) => void | Promise<void>
+  onSubmit: (text: string, fund?: number) => void | Promise<void>
   onStop: () => void | Promise<void>
 
   // Latest exec status error (e.g., when status === Failed)

@@ -19,7 +19,7 @@ export interface PromptComposerProps {
   submitting?: boolean
   wfStatus?: string | null
   wfRunning?: boolean
-  onSubmit: (text: string) => void | Promise<void>
+  onSubmit: (text: string, fund?: number) => void | Promise<void>
   onStop?: () => void | Promise<void>
   // Upload (optional)
   showUploadButton?: boolean
@@ -94,6 +94,7 @@ export function PromptComposer(props: PromptComposerProps) {
   } = props
 
   const [text, setText] = useState('')
+  const [fund, setFund] = useState(1)
   const [uploadOpen, setUploadOpen] = useState(false)
 
   // Allow submitting even while a submission is in flight or workflow is running; backend queues queries.
@@ -107,9 +108,9 @@ export function PromptComposer(props: PromptComposerProps) {
       if (!canSubmit) return
       const payload = text.trim()
       setText('')
-      await onSubmit(payload)
+      await onSubmit(payload, fund)
     },
-    [canSubmit, onSubmit, text]
+    [canSubmit, fund, onSubmit, text]
   )
 
   const handleUploadClick = useCallback(() => {
@@ -177,6 +178,28 @@ export function PromptComposer(props: PromptComposerProps) {
               }
             }}
           />
+          <select
+            value={fund}
+            onChange={(e) => setFund(Number(e.currentTarget.value))}
+            disabled={!!disabled}
+            aria-label="Workflow fund"
+            title="Workflow fund"
+            style={{
+              borderRadius: 8,
+              border: '1px solid #d1d5db',
+              background: disabled ? '#f9fafb' : '#ffffff',
+              color: '#111827',
+              padding: '8px 10px',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <option value={5}>$5</option>
+            <option value={2.5}>$2½</option>
+            <option value={1}>$1</option>
+            <option value={0.3}>30¢</option>
+          </select>
           <button
             type="submit"
             disabled={!canSubmit}

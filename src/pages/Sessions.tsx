@@ -263,11 +263,11 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
 
   const [submitting, setSubmitting] = useState(false)
 
-  async function handlePromptSubmit(text: string) {
+  async function handlePromptSubmit(text: string, fund = 1) {
     if (!effectiveWorkflowName) return
     try {
       setSubmitting(true)
-      await awx.execute({ query: text, model })
+      await awx.execute({ query: text, model, fund })
     } finally {
       setSubmitting(false)
     }
