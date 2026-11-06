@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useCredsApi, type CredMeta } from '../hooks/useCredsApi'
+import { ApiKeysSettings } from './ApiKeysSettings'
 
 export type SettingsPageProps = {
   idToken?: string | null
@@ -144,6 +145,8 @@ export function SettingsPage(props: SettingsPageProps) {
             ) : null}
           </div>
         </section>
+
+        <ApiKeysSettings idToken={idToken} />
 
         {/* OpenAI setup instructions */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 }}>
