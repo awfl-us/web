@@ -206,6 +206,21 @@ export function makeApiClient(opts: ApiClientOptions) {
       return await getJson(`/workflows/tools/list${qs}`, opts, ropts)
     },
 
+    // GitHub App authorization and project-scoped installation management.
+    async githubAppStatus(projectId: string, ropts?: RequestOptions) {
+      if (!projectId) throw new Error('githubAppStatus: projectId required')
+      return getJson('/workflows/github-app/status?projectId=' + encodeURIComponent(projectId), opts,
+        { ...ropts, noProjectHeader: true })
+    },
+    async githubAppStart(projectId: string, ropts?: RequestOptions) {
+      if (!projectId) throw new Error('githubAppStart: projectId required')
+      return postJson('/workflows/github-app/start', { projectId }, opts, { ...ropts, noProjectHeader: true })
+    },
+    async githubAppDisconnect(projectId: string, ropts?: RequestOptions) {
+      if (!projectId) throw new Error('githubAppDisconnect: projectId required')
+      return postJson('/workflows/github-app/disconnect', { projectId }, opts, { ...ropts, noProjectHeader: true })
+    },
+
     // Git service under /workflows/services/git
     async gitConfigGet(projectId: string, ropts?: RequestOptions) {
       if (!projectId) throw new Error('gitConfigGet: projectId is required')
