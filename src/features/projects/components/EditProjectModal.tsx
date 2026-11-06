@@ -13,6 +13,14 @@ type GithubAppStatus = {
   needsReconnect: boolean
 }
 
+type GoogleCloudStatus = {
+  configured: boolean
+  connected: boolean
+  cloudProjectId: string | null
+  email: string | null
+  linkedAt: string | null
+}
+
 export type EditProjectModalProps = {
   idToken?: string | null
   open: boolean
@@ -22,10 +30,11 @@ export type EditProjectModalProps = {
   onDeleted?: (projectId: string) => void
   onOpenGitHubSettings?: () => void
   githubAppNotice?: string | null
+  googleCloudNotice?: string | null
 }
 
 export function EditProjectModal(props: EditProjectModalProps) {
-  const { idToken, open, project, onClose, onUpdated, onDeleted, onOpenGitHubSettings, githubAppNotice } = props
+  const { idToken, open, project, onClose, onUpdated, onDeleted, onOpenGitHubSettings, githubAppNotice, googleCloudNotice } = props
   const initialName = useMemo(() => project?.name || '', [project])
   const initialRemote = useMemo(() => project?.remote || '', [project])
   const [name, setName] = useState(initialName)
@@ -38,6 +47,12 @@ export function EditProjectModal(props: EditProjectModalProps) {
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubBusy, setGithubBusy] = useState(false)
   const [githubError, setGithubError] = useState<string | null>(null)
+  const [googleCloud, setGoogleCloud] = useState<GoogleCloudStatus | null>(null)
+  const [cloudProjectId, setCloudProjectId] = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
+  const [googleError, setGoogleError] = useState<string | null>(null)
+  const [googleTest, setGoogleTest] = useState<string | null>(null)
 
   const client = useMemo(() => makeApiClient({
     idToken: idToken || undefined,
@@ -63,6 +78,28 @@ export function EditProjectModal(props: EditProjectModalProps) {
         if (!controller.signal.aborted) setGithubError(error instanceof Error ? error.message : String(error))
       })
       .finally(() => { if (!controller.signal.aborted) setGithubLoading(false) })
+    return () => controller.abort()
+  }, [open, project?.id, idToken, client])
+
+  useEffect(() => {
+    if (!open || !project || (!idToken && import.meta.env.VITE_SKIP_AUTH !== '1')) return
+    const controller = new AbortController()
+    setGoogleCloud(null)
+    setCloudProjectId('')
+    setGoogleError(null)
+    setGoogleTest(null)
+    setGoogleLoading(true)
+    client.googleCloudStatus(project.id, { signal: controller.signal })
+      .then(value => {
+        if (controller.signal.aborted) return
+        const status = value as GoogleCloudStatus
+        setGoogleCloud(status)
+        setCloudProjectId(status.cloudProjectId || '')
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setGoogleError(error instanceof Error ? error.message : String(error))
+      })
+      .finally(() => { if (!controller.signal.aborted) setGoogleLoading(false) })
     return () => controller.abort()
   }, [open, project?.id, idToken, client])
 
@@ -123,9 +160,61 @@ export function EditProjectModal(props: EditProjectModalProps) {
     }
   }
 
+  async function handleGoogleConnect() {
+    if (!project || googleBusy) return
+    setGoogleError(null)
+    setGoogleBusy(true)
+    try {
+      const response = await client.googleCloudStart(project.id, cloudProjectId.trim())
+      const url = new URL(response.url)
+      if (url.protocol !== 'https:' || url.hostname !== 'accounts.google.com') {
+        throw new Error('Invalid Google authorization URL')
+      }
+      window.location.assign(url.toString())
+    } catch (error: unknown) {
+      setGoogleError(error instanceof Error ? error.message : String(error))
+      setGoogleBusy(false)
+    }
+  }
+
+  async function handleGoogleTest() {
+    if (!project || googleBusy) return
+    setGoogleError(null)
+    setGoogleTest(null)
+    setGoogleBusy(true)
+    try {
+      const result = await client.googleCloudTest(project.id)
+      setGoogleTest(result.access === 'ok'
+        ? 'Secret Manager access verified for ' + result.cloudProjectId
+        : result.access === 'permission_denied'
+          ? 'Connected, but this account cannot list secrets in ' + result.cloudProjectId
+          : 'Could not verify Secret Manager access to ' + result.cloudProjectId)
+    } catch (error: unknown) {
+      setGoogleError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
+
+  async function handleGoogleDisconnect() {
+    if (!project || googleBusy) return
+    if (!window.confirm('Disconnect Google Cloud access for this project?')) return
+    setGoogleError(null)
+    setGoogleBusy(true)
+    try {
+      await client.googleCloudDisconnect(project.id)
+      setGoogleCloud(await client.googleCloudStatus(project.id) as GoogleCloudStatus)
+      setGoogleTest(null)
+    } catch (error: unknown) {
+      setGoogleError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
+
   const remoteIsSaved = remote.trim() === initialRemote.trim()
-  const anyError = saveError || deleteError || githubError
-  const busy = saving || deleting || githubBusy
+  const anyError = saveError || deleteError || githubError || googleError
+  const busy = saving || deleting || githubBusy || googleBusy
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Edit project" style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
@@ -206,6 +295,63 @@ export function EditProjectModal(props: EditProjectModalProps) {
                   Manage GitHub PAT instead
                 </button>
               )}
+            </section>
+
+            <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, display: 'grid', gap: 8 }}>
+              <strong style={{ fontSize: 14 }}>Google Cloud access</strong>
+              {googleCloudNotice === 'connected' && (
+                <div role="status" style={{ color: '#065f46', fontSize: 13 }}>Google Cloud connected successfully. Restart the cloud consumer to apply it.</div>
+              )}
+              {googleLoading ? (
+                <div style={{ color: '#6b7280', fontSize: 13 }}>Checking Google Cloud connection…</div>
+              ) : googleCloud?.connected ? (
+                <div style={{ color: '#065f46', fontSize: 13 }}>
+                  Connected {googleCloud.email ? 'as ' + googleCloud.email : ''}
+                  {googleCloud.cloudProjectId ? ' to ' + googleCloud.cloudProjectId : ''}
+                </div>
+              ) : (
+                <div style={{ color: '#6b7280', fontSize: 13 }}>
+                  {googleCloud?.configured === false
+                    ? 'Google Cloud OAuth needs to be configured on the AWFL server.'
+                    : 'No Google Cloud account connected to this project.'}
+                </div>
+              )}
+              <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+                Google Cloud project ID
+                <input
+                  value={cloudProjectId}
+                  onChange={e => setCloudProjectId(e.target.value)}
+                  placeholder="e.g., topaigents"
+                  disabled={busy || googleLoading}
+                  style={{ padding: '7px 9px', border: '1px solid #d1d5db', borderRadius: 6 }}
+                />
+              </label>
+              {googleTest && <div role="status" style={{ fontSize: 12, color: '#374151' }}>{googleTest}</div>}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" onClick={handleGoogleConnect}
+                  disabled={busy || googleLoading || !googleCloud?.configured || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(cloudProjectId.trim())}
+                  style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: '#eef2ff' }}>
+                  {googleBusy ? 'Working…' : googleCloud?.connected ? 'Reconnect Google Cloud' : 'Connect Google Cloud'}
+                </button>
+                {googleCloud?.connected && (
+                  <>
+                    <button type="button" onClick={handleGoogleTest} disabled={busy}
+                      style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}>
+                      Test Secret Manager
+                    </button>
+                    <button type="button" onClick={handleGoogleDisconnect} disabled={busy}
+                      style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: 'white' }}>
+                      Disconnect
+                    </button>
+                  </>
+                )}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: 12 }}>
+                Authorize AWFL to access Google Cloud as your account (cloud-platform scope).
+                The refresh credential stays encrypted on the server. New cloud consumers receive
+                a short-lived access token (approximately one hour) and must restart to refresh it.
+                Disconnecting does not revoke access already held by running consumers.
+              </div>
             </section>
 
             {anyError && (

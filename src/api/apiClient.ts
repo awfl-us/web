@@ -221,6 +221,28 @@ export function makeApiClient(opts: ApiClientOptions) {
       return postJson('/workflows/github-app/disconnect', { projectId }, opts, { ...ropts, noProjectHeader: true })
     },
 
+    // Google Cloud OAuth (project-scoped; no OAuth tokens returned to the UI).
+    async googleCloudStatus(projectId: string, ropts?: RequestOptions) {
+      if (!projectId) throw new Error('googleCloudStatus: projectId required')
+      return getJson('/workflows/google-cloud/status?projectId=' + encodeURIComponent(projectId),
+        opts, { ...ropts, noProjectHeader: true })
+    },
+    async googleCloudStart(projectId: string, cloudProjectId: string, ropts?: RequestOptions) {
+      if (!projectId || !cloudProjectId) throw new Error('Google Cloud project is required')
+      return postJson('/workflows/google-cloud/start', { projectId, cloudProjectId },
+        opts, { ...ropts, noProjectHeader: true })
+    },
+    async googleCloudTest(projectId: string, ropts?: RequestOptions) {
+      if (!projectId) throw new Error('googleCloudTest: projectId required')
+      return postJson('/workflows/google-cloud/test', { projectId },
+        opts, { ...ropts, noProjectHeader: true })
+    },
+    async googleCloudDisconnect(projectId: string, ropts?: RequestOptions) {
+      if (!projectId) throw new Error('googleCloudDisconnect: projectId required')
+      return postJson('/workflows/google-cloud/disconnect', { projectId },
+        opts, { ...ropts, noProjectHeader: true })
+    },
+
     // Git service under /workflows/services/git
     async gitConfigGet(projectId: string, ropts?: RequestOptions) {
       if (!projectId) throw new Error('gitConfigGet: projectId is required')
