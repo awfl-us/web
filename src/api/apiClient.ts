@@ -288,6 +288,20 @@ export function makeApiClient(opts: ApiClientOptions) {
       return await deleteJson(`/workflows/creds/${encodeURIComponent(provider)}`, opts, ropts)
     },
 
+    // User-scoped AWFL MCP API keys (Firebase-authenticated management).
+    // No project selection is required for these operations.
+    async apiKeysList(ropts?: RequestOptions) {
+      return await getJson('/workflows/api-keys', opts, { ...ropts, noProjectHeader: true })
+    },
+    async apiKeysCreate(name: string, ropts?: RequestOptions) {
+      if (!name.trim()) throw new Error('apiKeysCreate: name is required')
+      return await postJson('/workflows/api-keys', { name }, opts, { ...ropts, noProjectHeader: true })
+    },
+    async apiKeysRevoke(id: string, ropts?: RequestOptions) {
+      if (!id) throw new Error('apiKeysRevoke: id is required')
+      return await deleteJson('/workflows/api-keys/' + encodeURIComponent(id), opts, { ...ropts, noProjectHeader: true })
+    },
+
     // LLM usage — project hourly aggregates
     async llmUsageProjectHourly(params: { start: string; end: string }, ropts?: RequestOptions) {
       if (!params?.start) throw new Error('llmUsageProjectHourly: start is required (YYYYMMDDHH)')
