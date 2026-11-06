@@ -136,6 +136,24 @@ function App() {
   const [newOpen, setNewOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
+  const [githubAppNotice, setGithubAppNotice] = useState<string | null>(null)
+  useEffect(() => {
+    // Resume the signed-in project editing flow after GitHub redirects to AWFL.
+    const url = new URL(window.location.href)
+    const result = url.searchParams.get('github_app')
+    if (!['connected', 'install_required', 'installed'].includes(result || '')) return
+    setGithubAppNotice(result)
+    const id = url.searchParams.get('project_id') || getSelectedProjectId()
+    if (id) {
+      setSelectedProjectId(id)
+      setProjectId(id)
+      setEditOpen(true)
+    }
+    url.searchParams.delete('github_app')
+    url.searchParams.delete('project_id')
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+  }, [])
+
   useEffect(() => {
     if (!mobileOpen) return
     const prev = (document.activeElement as HTMLElement | null) || null
@@ -343,7 +361,13 @@ function App() {
         idToken={idToken}
         open={editOpen}
         project={currentProject}
-        onClose={() => setEditOpen(false)}
+        onClose={() => { setEditOpen(false); setGithubAppNotice(null) }}
+        githubAppNotice={githubAppNotice}
+        onOpenGitHubSettings={() => {
+          setEditOpen(false)
+          setGithubAppNotice(null)
+          setRoute('integrations-github')
+        }}
         onUpdated={(proj) => {
           // Keep selection; just refresh list/labels
           if (proj?.id) {
