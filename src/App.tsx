@@ -137,12 +137,15 @@ function App() {
   const [editOpen, setEditOpen] = useState(false)
 
   const [githubAppNotice, setGithubAppNotice] = useState<string | null>(null)
+  const [googleCloudNotice, setGoogleCloudNotice] = useState<string | null>(null)
   useEffect(() => {
-    // Resume the signed-in project editing flow after GitHub redirects to AWFL.
+    // Resume the project modal after GitHub or Google Cloud authorization.
     const url = new URL(window.location.href)
     const result = url.searchParams.get('github_app')
-    if (!['connected', 'install_required', 'installed'].includes(result || '')) return
-    setGithubAppNotice(result)
+    const cloudResult = url.searchParams.get('google_cloud')
+    if (!['connected', 'install_required', 'installed'].includes(result || '') && cloudResult !== 'connected') return
+    if (result) setGithubAppNotice(result)
+    if (cloudResult === 'connected') setGoogleCloudNotice(cloudResult)
     const id = url.searchParams.get('project_id') || getSelectedProjectId()
     if (id) {
       setSelectedProjectId(id)
@@ -150,6 +153,7 @@ function App() {
       setEditOpen(true)
     }
     url.searchParams.delete('github_app')
+    url.searchParams.delete('google_cloud')
     url.searchParams.delete('project_id')
     window.history.replaceState({}, '', url.pathname + url.search + url.hash)
   }, [])
@@ -361,8 +365,9 @@ function App() {
         idToken={idToken}
         open={editOpen}
         project={currentProject}
-        onClose={() => { setEditOpen(false); setGithubAppNotice(null) }}
+        onClose={() => { setEditOpen(false); setGithubAppNotice(null); setGoogleCloudNotice(null) }}
         githubAppNotice={githubAppNotice}
+        googleCloudNotice={googleCloudNotice}
         onOpenGitHubSettings={() => {
           setEditOpen(false)
           setGithubAppNotice(null)
