@@ -183,14 +183,14 @@ export function EditProjectModal(props: EditProjectModalProps) {
     setGoogleTest(null)
     setGoogleBusy(true)
     try {
-      const result = await client.googleCloudTest(project.id)
+      const result = await client.googleCloudTest(project.id, { signal: AbortSignal.timeout(20000) })
       setGoogleTest(result.access === 'ok'
         ? 'Secret Manager access verified for ' + result.cloudProjectId
         : result.access === 'permission_denied'
           ? 'Connected, but this account cannot list secrets in ' + result.cloudProjectId
           : 'Could not verify Secret Manager access to ' + result.cloudProjectId)
     } catch (error: unknown) {
-      setGoogleError(error instanceof Error ? error.message : String(error))
+      setGoogleError(error instanceof Error && error.name === 'TimeoutError' ? 'Secret Manager check timed out after 20 seconds. Try again.' : error instanceof Error ? error.message : String(error))
     } finally {
       setGoogleBusy(false)
     }
