@@ -164,6 +164,8 @@ export function ConsumerStatusPill({
   const [selectedImageProfile, setSelectedImageProfile] = useState<ImageProfileId>('lightweight')
 
   useEffect(() => {
+    setImageProfiles([])
+    setSelectedImageProfile('lightweight')
     if (!enabled || !projectId || !idToken) return
     let cancelled = false
     const client = makeApiClient({ idToken })
