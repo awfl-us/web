@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { makeApiClient } from '../../../api/apiClient'
 
 export type ProducerStartOptions = {
+  imageProfile?: 'lightweight' | 'browser' | 'scala'
   sessionId?: string
   since_id?: string
   since_time?: string

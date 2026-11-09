@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useConsumerStatus } from '../hooks/useConsumerStatus'
 import { useProducerControls } from '../hooks/useProducerControls'
 import { Tooltip } from '../../ui/public'
+import { makeApiClient } from '../../../api/apiClient'
 import { ACTIVE_BG, ACTIVE_TEXT, INACTIVE_BG, INACTIVE_TEXT, type SlotOverrides } from './shared'
 
 export type ConsumerStatusPillProps = {
@@ -47,6 +48,8 @@ function getOrMakeClientId(): string {
 }
 
 const SLIDE_MS = 500
+type ImageProfileId = 'lightweight' | 'browser' | 'scala'
+type ImageProfileOption = { id: ImageProfileId; label: string; description: string; available: boolean }
 
 function StatusOverlay({
   visible,
@@ -156,7 +159,28 @@ export function ConsumerStatusPill({
 }: ConsumerStatusPillProps) {
   const consumerId = useMemo(() => consumerIdProp ?? getOrMakeClientId(), [consumerIdProp])
   const { status, reload } = useConsumerStatus({ idToken, projectId, consumerId, enabled, intervalMs })
-  const { start, stop, loading: pending } = useProducerControls({ idToken, projectId, enabled })
+  const { start, stop, loading: pending, error: controlError } = useProducerControls({ idToken, projectId, enabled })
+  const [imageProfiles, setImageProfiles] = useState<ImageProfileOption[]>([])
+  const [selectedImageProfile, setSelectedImageProfile] = useState<ImageProfileId>('lightweight')
+
+  useEffect(() => {
+    if (!enabled || !projectId || !idToken) return
+    let cancelled = false
+    const client = makeApiClient({ idToken })
+    client.producerImages({ extraHeaders: { 'x-project-id': projectId } })
+      .then((catalog: { default: ImageProfileId; profiles: ImageProfileOption[] }) => {
+        if (cancelled) return
+        const available = (catalog.profiles || []).filter(profile => profile.available)
+        setImageProfiles(available)
+        const stored = (() => { try { return localStorage.getItem(`awfl.image-profile.${projectId}`) } catch { return null } })()
+        const preferred = available.find(profile => profile.id === stored)?.id
+          || available.find(profile => profile.id === catalog.default)?.id
+          || available[0]?.id
+        if (preferred) setSelectedImageProfile(preferred)
+      })
+      .catch(() => { if (!cancelled) setImageProfiles([]) })
+    return () => { cancelled = true }
+  }, [enabled, projectId, idToken])
 
   const type = status?.consumerType // 'LOCAL' | 'CLOUD' | null
   const localActive = type === 'LOCAL'
@@ -210,7 +234,7 @@ export function ConsumerStatusPill({
       } else {
         setIntent('start')
         try {
-          const res = await start({})
+          const res = await start({ imageProfile: selectedImageProfile })
           if (res) console.log('[producer.start] response:', res)
         } catch (e) {
           console.warn('producer.start failed', e)
@@ -309,6 +333,22 @@ export function ConsumerStatusPill({
               {labels?.cloud ?? 'Cloud'}
             </span>
           )}
+          {showControls && !cloudActive && imageProfiles.length > 0 && (
+            <select
+              aria-label="Environment image"
+              title="Choose tools for the next cloud environment"
+              disabled={playDisabled}
+              value={selectedImageProfile}
+              onChange={event => {
+                const profile = event.target.value as ImageProfileId
+                setSelectedImageProfile(profile)
+                try { localStorage.setItem(`awfl.image-profile.${projectId}`, profile) } catch { /* storage disabled */ }
+              }}
+              style={{ border: '1px solid #d1d5db', borderRadius: 6, background: 'white', color: '#111827', fontSize: 12, padding: '2px 4px', maxWidth: 150 }}
+            >
+              {imageProfiles.map(profile => <option key={profile.id} value={profile.id} title={profile.description}>{profile.label}</option>)}
+            </select>
+          )}
           {showControls && (
             <Tooltip
               content={disabledReason || (pending ? pendingLabel : normalActionLabel)}
@@ -339,6 +379,10 @@ export function ConsumerStatusPill({
           )}
         </div>
       </div>
+
+      {showControls && controlError && <span role="alert" style={{ fontSize: 12, color: '#b91c1c', marginLeft: 6 }}>
+        {String((controlError as Error)?.message || controlError)}
+      </span>}
 
       <StatusOverlay visible={!!currMsg} message={currMsg} prevMessage={prevMsg} />
     </>
