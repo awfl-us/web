@@ -90,9 +90,12 @@ export function makeApiClient(opts: ApiClientOptions) {
     },
 
     // Producer controls under /workflows/producer
+    async producerImages(ropts?: RequestOptions) {
+      return await getJson('/workflows/producer/images', opts, ropts)
+    },
     async producerStart(body?: any, ropts?: RequestOptions) {
       // POST /workflows/producer/start — requires Authorization and X-Project-Id headers
-      // Optional JSON body supports { sessionId, since_id, since_time, leaseMs, eventsHeartbeatMs, reconnectBackoffMs, workspaceId, workspaceTtlMs, localDocker, localDockerImage, localDockerArgs }
+      // Optional JSON body supports { imageProfile: 'lightweight' | 'browser' | 'scala', sessionId, leaseMs, workspaceId, ... }
       const payload = body && typeof body === 'object' ? body : {}
       return await postJson('/workflows/producer/start', payload, opts, ropts)
     },
