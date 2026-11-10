@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import McpOAuthConsent from './pages/McpOAuthConsent.tsx'
 import { AuthProvider } from './auth/AuthProvider'
 import { setDefaultApiBase } from './core/public'
 
@@ -11,7 +12,7 @@ setDefaultApiBase(import.meta.env.VITE_API_BASE || '')
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
-      <App />
+      {window.location.pathname === '/oauth/consent' ? <McpOAuthConsent /> : <App />}
     </AuthProvider>
   </StrictMode>,
 )
