@@ -161,24 +161,21 @@ export function ConsumerStatusPill({
   const { status, reload } = useConsumerStatus({ idToken, projectId, consumerId, enabled, intervalMs })
   const { start, stop, loading: pending, error: controlError } = useProducerControls({ idToken, projectId, enabled })
   const [imageProfiles, setImageProfiles] = useState<ImageProfileOption[]>([])
-  const [selectedImageProfile, setSelectedImageProfile] = useState<ImageProfileId>('scala')
+  const [selectedImageProfile, setSelectedImageProfile] = useState<ImageProfileId | ''>('')
 
   useEffect(() => {
     setImageProfiles([])
-    setSelectedImageProfile('scala')
+    setSelectedImageProfile('')
     if (!enabled || !projectId || !idToken) return
     let cancelled = false
     const client = makeApiClient({ idToken })
     client.producerImages({ extraHeaders: { 'x-project-id': projectId } })
-      .then((catalog: { default: ImageProfileId; profiles: ImageProfileOption[] }) => {
+      .then((catalog: { default: ImageProfileId | null; profiles: ImageProfileOption[] }) => {
         if (cancelled) return
         const available = (catalog.profiles || []).filter(profile => profile.available)
         setImageProfiles(available)
-        const stored = (() => { try { return localStorage.getItem(`awfl.image-profile.${projectId}`) } catch { return null } })()
-        const preferred = available.find(profile => profile.id === stored)?.id
-          || available.find(profile => profile.id === catalog.default)?.id
-          || available[0]?.id
-        if (preferred) setSelectedImageProfile(preferred)
+        // Require a fresh, visible choice for every newly started environment;
+        // neither server catalog order nor an old saved preference may pick it.
       })
       .catch(() => { if (!cancelled) setImageProfiles([]) })
     return () => { cancelled = true }
@@ -195,7 +192,7 @@ export function ConsumerStatusPill({
   }, [pending])
 
   const cannotControlCloud = !enabled || !projectId || !idToken
-  const playDisabled = !!(localActive || pending || cannotControlCloud)
+  const playDisabled = !!(localActive || pending || cannotControlCloud || (!cloudActive && !selectedImageProfile))
 
   const intentText = intent === 'stop' ? 'Stopping…' : intent === 'start' ? 'Starting…' : null
   const disabledReason = localActive
@@ -204,6 +201,8 @@ export function ConsumerStatusPill({
     ? intentText || (cloudActive ? 'Working…' : 'Working…')
     : cannotControlCloud
     ? 'Disabled: Missing auth or project'
+    : !cloudActive && !selectedImageProfile
+    ? 'Choose an environment image first'
     : ''
 
   // Backend-provided status message drives overlay visibility and transitions
@@ -234,6 +233,7 @@ export function ConsumerStatusPill({
         const res = await stop()
         if (res) console.log('[producer.stop] response:', res)
       } else {
+        if (!selectedImageProfile) return
         setIntent('start')
         try {
           const res = await start({ imageProfile: selectedImageProfile })
@@ -339,15 +339,15 @@ export function ConsumerStatusPill({
             <select
               aria-label="Environment image"
               title="Choose tools for the next cloud environment"
-              disabled={playDisabled}
+              disabled={!!(localActive || pending || cannotControlCloud)}
               value={selectedImageProfile}
               onChange={event => {
                 const profile = event.target.value as ImageProfileId
                 setSelectedImageProfile(profile)
-                try { localStorage.setItem(`awfl.image-profile.${projectId}`, profile) } catch { /* storage disabled */ }
               }}
               style={{ border: '1px solid #d1d5db', borderRadius: 6, background: 'white', color: '#111827', fontSize: 12, padding: '2px 4px', maxWidth: 150 }}
             >
+              <option value="" disabled>Choose image…</option>
               {imageProfiles.map(profile => <option key={profile.id} value={profile.id} title={profile.description}>{profile.label}</option>)}
             </select>
           )}
