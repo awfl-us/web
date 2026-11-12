@@ -161,11 +161,11 @@ export function ConsumerStatusPill({
   const { status, reload } = useConsumerStatus({ idToken, projectId, consumerId, enabled, intervalMs })
   const { start, stop, loading: pending, error: controlError } = useProducerControls({ idToken, projectId, enabled })
   const [imageProfiles, setImageProfiles] = useState<ImageProfileOption[]>([])
-  const [selectedImageProfile, setSelectedImageProfile] = useState<ImageProfileId>('lightweight')
+  const [selectedImageProfile, setSelectedImageProfile] = useState<ImageProfileId>('scala')
 
   useEffect(() => {
     setImageProfiles([])
-    setSelectedImageProfile('lightweight')
+    setSelectedImageProfile('scala')
     if (!enabled || !projectId || !idToken) return
     let cancelled = false
     const client = makeApiClient({ idToken })
