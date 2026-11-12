@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { makeApiClient } from '../../../api/apiClient'
 
 export type ProducerStartOptions = {
-  imageProfile?: 'lightweight' | 'browser' | 'scala'
+  imageProfile: 'lightweight' | 'browser' | 'scala'
   sessionId?: string
   since_id?: string
   since_time?: string
@@ -39,14 +39,14 @@ export function useProducerControls({ idToken, projectId, enabled = true }: UseP
   const client = useMemo(() => makeApiClient({ idToken }), [idToken])
 
   const start = useCallback(
-    async (opts?: ProducerStartOptions) => {
+    async (opts: ProducerStartOptions) => {
       if (!enabled) return null
       // Ensure required project header is present; http client uses getSelectedProjectId by default
       const ropts = projectId ? { extraHeaders: { 'x-project-id': projectId } } : undefined
       try {
         setStarting(true)
         setError(null)
-        const json = await client.producerStart(opts || {}, ropts as any)
+        const json = await client.producerStart(opts, ropts as any)
         if (!mountedRef.current) return null
         setResponse(json)
         return json
