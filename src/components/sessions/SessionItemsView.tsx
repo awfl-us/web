@@ -85,7 +85,10 @@ export function SessionItemsView({
         style={{
           boxSizing: 'border-box',
           minWidth: 0,
-          overflowX: 'hidden',
+          // "hidden" creates a second vertical scroll container (overflow-y computes to auto).
+          // Keep the outer containerRef as the only scroller so useScrollHome observes user scrolling.
+          overflowX: 'clip',
+          flexShrink: 0,
           overflowWrap: 'anywhere',
           wordBreak: 'break-word',
           whiteSpace: 'pre-wrap',
