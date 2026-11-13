@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export type UseScrollHomeOptions = {
   containerRef: React.RefObject<HTMLElement | null>
-  // When home is 'bottom' or 'top', an anchor sentinel provides reliable scrolling across layouts.
+  // Retained for callers using the old API; scrolling only containerRef avoids moving ancestors.
   anchorRef?: React.RefObject<HTMLElement | null>
   itemCount: number
   home: 'bottom' | 'top'
@@ -18,7 +18,6 @@ export type UseScrollHomeOptions = {
 
 export function useScrollHome({
   containerRef,
-  anchorRef,
   itemCount,
   home,
   enabled = true,
@@ -31,9 +30,6 @@ export function useScrollHome({
   const didInitialRef = useRef(false)
   const awayRef = useRef(false) // sticky flag: user scrolled away far enough
   const lastObservedAtHomeRef = useRef(true) // based on user scroll/explicit measurements prior to new items
-
-  // Track previous scroll metrics to preserve position across content updates
-  const prevScrollRef = useRef<{ height: number; top: number }>({ height: 0, top: 0 })
 
   // Helper to compute distance-from-home and booleans
   function compute(el: HTMLElement | null) {
@@ -71,8 +67,6 @@ export function useScrollHome({
       lastObservedAtHomeRef.current = atHome
       if (awaySticky) awayRef.current = true
       if (atHome) awayRef.current = false // reset sticky when user returns home
-      // Update previous metrics on user scroll so we always have a fresh baseline
-      if (node) prevScrollRef.current = { height: node.scrollHeight, top: node.scrollTop }
     }
 
     function onUserContentExpand() {
@@ -90,7 +84,6 @@ export function useScrollHome({
       lastObservedAtHomeRef.current = atHome
       if (awaySticky) awayRef.current = true
       if (atHome) awayRef.current = false
-      prevScrollRef.current = { height: el.scrollHeight, top: el.scrollTop }
     }
 
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -104,12 +97,11 @@ export function useScrollHome({
   }, [containerRef, enabled, home, threshold, stickyAwayThreshold])
 
   // Reset counters when key (e.g., session/view) changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     prevCountRef.current = 0
     didInitialRef.current = false
     awayRef.current = false
     lastObservedAtHomeRef.current = true
-    prevScrollRef.current = { height: 0, top: 0 }
   }, [key])
 
   // Preserve position and/or scroll to home on initial load or when new items arrive
@@ -122,31 +114,12 @@ export function useScrollHome({
 
     const prev = prevCountRef.current
     const count = itemCount || 0
-    const isInitial = prev === 0 && count > 0
+    // A transient empty update must not look like a new session and snap the reader to bottom.
+    const isInitial = !didInitialRef.current && count > 0
     const hasCountChange = count !== prev
 
-    // Snapshot current (post-render) metrics and previously stored metrics
-    const prevHeight = prevScrollRef.current.height
-    const prevTop = prevScrollRef.current.top
-    const newHeight = nodeEl.scrollHeight
-    const deltaHeight = newHeight - prevHeight
-
     function scrollToHome(behavior: ScrollBehavior) {
-      if (home === 'bottom') {
-        const anchor = anchorRef?.current
-        if (anchor && 'scrollIntoView' in anchor) {
-          anchor.scrollIntoView({ behavior, block: 'end' })
-        } else {
-          nodeEl.scrollTo({ top: nodeEl.scrollHeight, behavior })
-        }
-      } else {
-        const anchor = anchorRef?.current
-        if (anchor && 'scrollIntoView' in anchor) {
-          anchor.scrollIntoView({ behavior, block: 'start' })
-        } else {
-          nodeEl.scrollTo({ top: 0, behavior })
-        }
-      }
+      nodeEl.scrollTo({ top: home === 'bottom' ? nodeEl.scrollHeight : 0, behavior })
     }
 
     // Measurement at decision time (may reflect content shifts)
@@ -160,25 +133,19 @@ export function useScrollHome({
       didInitialRef.current = true
       awayRef.current = false
     } else if (!wasAtHome || userScrolledAway) {
-      // Preserve viewport when the user is away from home (either by observation or sticky-away)
-      // Adjust by the delta in scrollHeight so the same content stays in view even if content
-      // was added/removed above the viewport.
-      if (deltaHeight !== 0) {
-        nodeEl.scrollTop = prevTop + deltaHeight
-      }
-      // Do not auto-scroll when user is away.
+      // Leave the viewport untouched when reading history. The browser's native
+      // scroll anchoring already handles insertions above the visible messages;
+      // adding the full height delta here incorrectly follows appended messages.
     } else if (hasCountChange) {
       // User was at home; keep them pinned there on updates
       if (!userScrolledAway && (wasAtHome || (nowAtHome && !awaySticky))) {
-        scrollToHome('smooth')
+        scrollToHome('auto')
       }
     }
 
     // Update refs for next pass
     prevCountRef.current = count
-    // After any manual scroll adjustments, re-measure current metrics for the next diff
-    prevScrollRef.current = { height: nodeEl.scrollHeight, top: nodeEl.scrollTop }
-  }, [itemCount, enabled, home, anchorRef, threshold, stickyAwayThreshold, containerRef])
+  }, [itemCount, enabled, home, threshold, stickyAwayThreshold, containerRef])
 
   return { isAtHome }
 }
