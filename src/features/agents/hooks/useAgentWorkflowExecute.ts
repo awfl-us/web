@@ -39,7 +39,7 @@ export function useAgentWorkflowExecute(params: UseAgentWorkflowExecuteParams) {
   const error = exec.error || (agentsError ? String(agentsError) : null)
 
   const execute = async (inputParams?: Record<string, any>) => {
-    if (!canExecute || !workflowName) return
+    if (!canExecute || !workflowName) throw new Error('No agent workflow is configured for this session')
     await exec.start(workflowName, inputParams, { sessionId, agentId: resolved.agentId || undefined })
   }
 
