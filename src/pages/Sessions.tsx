@@ -264,7 +264,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const [submitting, setSubmitting] = useState(false)
 
   async function handlePromptSubmit(text: string, fund = 1) {
-    if (!effectiveWorkflowName) return
+    if (!effectiveWorkflowName) throw new Error('No agent workflow is configured for this session')
     try {
       setSubmitting(true)
       await awx.execute({ query: text, model, fund })
