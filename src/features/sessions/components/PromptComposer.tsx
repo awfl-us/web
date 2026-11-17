@@ -94,21 +94,33 @@ export function PromptComposer(props: PromptComposerProps) {
   } = props
 
   const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
   const [fund, setFund] = useState(1)
   const [uploadOpen, setUploadOpen] = useState(false)
 
   // Allow submitting even while a submission is in flight or workflow is running; backend queues queries.
   const canSubmit = useMemo(() => {
-    return !disabled && (text?.trim()?.length ?? 0) > 0
-  }, [disabled, text])
+    return !disabled && !sending && (text?.trim()?.length ?? 0) > 0
+  }, [disabled, sending, text])
 
   const handleSubmit = useCallback(
     async (e?: FormEvent) => {
       e?.preventDefault?.()
       if (!canSubmit) return
       const payload = text.trim()
-      setText('')
-      await onSubmit(payload, fund)
+      setSubmissionError(null)
+      setSending(true)
+      try {
+        await onSubmit(payload, fund)
+        // Preserve any new draft the user typed while awaiting confirmation.
+        setText(current => current.trim() === payload ? '' : current)
+      } catch (error) {
+        // Never discard the prompt when the request fails.
+        setSubmissionError(error instanceof Error ? error.message : String(error))
+      } finally {
+        setSending(false)
+      }
     },
     [canSubmit, fund, onSubmit, text]
   )
@@ -158,7 +170,7 @@ export function PromptComposer(props: PromptComposerProps) {
           <input
             type="text"
             value={text}
-            onChange={(e) => setText(e.currentTarget.value)}
+            onChange={(e) => { setText(e.currentTarget.value); setSubmissionError(null) }}
             placeholder={placeholder || 'Type a prompt…'}
             disabled={!!disabled}
             className={inputClassName}
@@ -260,6 +272,11 @@ export function PromptComposer(props: PromptComposerProps) {
           )}
         </div>
       </form>
+      {submissionError && (
+        <p role="alert" style={{ margin: 0, color: '#b91c1c', fontSize: 13 }}>
+          Submission failed: {submissionError}
+        </p>
+      )}
 
       {/* Built-in upload modal */}
       {showUploadButton && !onOpenUpload ? (
