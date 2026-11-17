@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { makeApiClient } from '../api/apiClient'
 
 export type LatestExecItem = {
@@ -47,12 +47,12 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [, setLoading] = useState(false)
-  const bump = useRef(0)
+  const [bump, setBump] = useState(0)
 
   const skipAuth = (import.meta as any)?.env?.VITE_SKIP_AUTH === '1'
 
   const reload = useCallback(() => {
-    bump.current++
+    setBump(n => n + 1)
   }, [])
 
   const client = useMemo(() => makeApiClient({ idToken: idToken ?? undefined, skipAuth }), [idToken, skipAuth])
@@ -106,7 +106,7 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
       cancelled = true
       ac.abort()
     }
-  }, [sessionId, idToken, enabled, client, bump.current])
+  }, [sessionId, idToken, enabled, client, bump])
 
   // Polling
   useEffect(() => {
@@ -150,17 +150,18 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
         ...(aId ? { agentId: aId } : {}),
       }
 
-      client
-        .workflowsExecute({
+      try {
+        // Await confirmation instead of clearing the composer while the
+        // network request is still pending. Surface HTTP errors to callers.
+        await client.workflowsExecute({
           workflowName,
           params: execParams,
         })
-        .then(() => {
-          reload()
-        })
-        .catch((e: any) => {
-          setError(e?.message || String(e))
-        })
+        reload()
+      } catch (e: any) {
+        setError(e?.message || String(e))
+        throw e
+      }
     },
     [client, sessionId, hookAgentId, reload]
   )
