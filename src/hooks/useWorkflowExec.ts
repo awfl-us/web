@@ -126,7 +126,11 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
       ctx?: { sessionId?: string; agentId?: string }
     ) => {
       const sId = ctx?.sessionId || sessionId
-      if (!sId) return
+      if (!sId) {
+        const message = 'Select a session before submitting a workflow'
+        setError(message)
+        throw new Error(message)
+      }
       setError(null)
       // Prefer agentId provided via ctx, else from hook param, else from params
       const aId = ctx?.agentId || hookAgentId || (params as any)?.agentId
