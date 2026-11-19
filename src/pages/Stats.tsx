@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { TimeSeriesChart, useProjectHourlyUsage } from '../features/stats/public'
+import { useSelectedProjectId } from '../features/projects/public'
 import type { UsageMetric } from '../features/stats/public'
 
 const PALETTE = [
@@ -10,6 +11,9 @@ const PALETTE = [
 
 export default function StatsPage() {
   const { idToken, user } = useAuth() as any
+
+  // Listen for project changes (to trigger reload)
+  const projectId = useSelectedProjectId()
 
   // Controls
   const [metric, setMetric] = useState<UsageMetric>('cost')
@@ -27,6 +31,16 @@ export default function StatsPage() {
     end: endMs,
     enabled,
   })
+
+  // Reload when the selected project changes (skip initial mount)
+  const didMountRef = useRef(false)
+  useEffect(() => {
+    if (didMountRef.current) {
+      reload()
+    } else {
+      didMountRef.current = true
+    }
+  }, [projectId, reload])
 
   const flat = useMemo(() => {
     const arr: { t: number; workflow: string; value: number }[] = []

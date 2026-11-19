@@ -147,8 +147,8 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const effectiveWorkflowName = awx.workflowName || null
   const effectiveAgentId = awx.agentId || null
 
-  // Per-session model selection (persisted locally)
-  const { model, setModel, options: modelOptions } = useSessionModel({ sessionId: sel?.id || null, enabled: !!sel })
+  // Per-session model selection (persisted locally) with dynamic server-backed options
+  const { model, setModel, options: modelOptions } = useSessionModel({ sessionId: sel?.id || null, enabled: !!sel, idToken })
 
   // Single shared workflow exec for arbitrary workflow names (used by tasks)
   const genericExec = useWorkflowExec({

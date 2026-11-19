@@ -299,5 +299,11 @@ export function makeApiClient(opts: ApiClientOptions) {
       // Authorization and x-project-id are set by http.ts; do not send x-user-id here.
       return await getJson(`/workflows/llm/usage/project/hourly${qs}`, opts, ropts)
     },
+
+    // LLM models — available models, max tokens, providers, pricing
+    async llmModels(ropts?: RequestOptions) {
+      // GET /workflows/llm/models — returns { providers, inference, known_models, max_tokens, pricing }
+      return await getJson('/workflows/llm/models', opts, ropts)
+    },
   }
 }

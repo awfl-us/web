@@ -1,4 +1,4 @@
-export type ModelOption = { value: string; label: string }
+export type ModelOption = { value: string; label: string; title?: string }
 
 export function ModelSelector(props: {
   model: string
@@ -6,9 +6,10 @@ export function ModelSelector(props: {
   onChange: (m: string) => void
 }) {
   const { model, options, onChange } = props
+  const selected = options.find((o) => o.value === model) || null
   return (
     <label
-      title="Model"
+      title={selected?.title || 'Model'}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -41,14 +42,35 @@ export function ModelSelector(props: {
         }}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option key={o.value} value={o.value} title={o.title}>
             {o.label}
           </option>
         ))}
       </select>
-      <span aria-hidden style={{ marginLeft: -12, pointerEvents: 'none' }}>
-        ▾
-      </span>
+      <span aria-hidden style={{ marginLeft: -12, pointerEvents: 'none' }}>▾</span>
+      {selected?.title ? (
+        <span
+          aria-label="Model info"
+          title={selected.title}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 16,
+            height: 16,
+            borderRadius: 999,
+            background: '#e5e7eb',
+            color: '#374151',
+            marginLeft: 4,
+            cursor: 'help',
+            fontSize: 11,
+            lineHeight: '16px',
+            userSelect: 'none',
+          }}
+        >
+          i
+        </span>
+      ) : null}
     </label>
   )
 }
