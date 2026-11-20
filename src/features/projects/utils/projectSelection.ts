@@ -1,6 +1,14 @@
-import { getCookie, setCookie } from '../../../utils/cookies'
+import { deleteCookie, getCookie, setCookie } from '../../../utils/cookies'
 
 const KEY = 'awfl.projectId'
+type Listener = () => void
+const listeners = new Set<Listener>()
+
+/** Session selection is tab-specific; changes in this tab are observable. */
+export function subscribeSelectedProjectId(listener: Listener): () => void {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
 
 export function getSelectedProjectId(): string {
   try {
@@ -16,6 +24,7 @@ export function getSelectedProjectId(): string {
 }
 
 export function setSelectedProjectId(id?: string | null): void {
+  const previous = getSelectedProjectId()
   const val = id ?? ''
   try {
     if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -25,6 +34,10 @@ export function setSelectedProjectId(id?: string | null): void {
   } catch {
     // ignore sessionStorage errors
   }
-  // Always persist last non-empty selection to cookie for cross-tab defaults
+  // An explicit clear must not resurrect a stale cookie as the selected project.
   if (val) setCookie(KEY, val)
+  else deleteCookie(KEY)
+  if (getSelectedProjectId() !== previous) {
+    for (const notify of listeners) notify()
+  }
 }
