@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { TimeSeriesChart, useProjectHourlyUsage } from '../features/stats/public'
 import type { UsageMetric } from '../features/stats/public'
+import { useSelectedProjectId } from '../features/projects/public'
 
 const PALETTE = [
   '#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed',
@@ -10,6 +11,7 @@ const PALETTE = [
 
 export default function StatsPage() {
   const { idToken, user } = useAuth() as any
+  const projectId = useSelectedProjectId()
 
   // Controls
   const [metric, setMetric] = useState<UsageMetric>('cost')
@@ -22,6 +24,7 @@ export default function StatsPage() {
   const enabled = !!(idToken || (import.meta as any)?.env?.VITE_SKIP_AUTH)
 
   const { series, loading, error, reload } = useProjectHourlyUsage({
+    projectId,
     idToken,
     start: startMs,
     end: endMs,

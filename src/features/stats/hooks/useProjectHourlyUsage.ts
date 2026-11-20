@@ -80,6 +80,7 @@ function toSeries(rows: UsageRow[]): UsageSeries[] {
 }
 
 export type UseProjectHourlyUsageParams = {
+  projectId: string
   idToken?: string | null
   start: Date | number | string
   end: Date | number | string
@@ -95,8 +96,8 @@ export type UseProjectHourlyUsageResult = {
 }
 
 export function useProjectHourlyUsage(params: UseProjectHourlyUsageParams): UseProjectHourlyUsageResult {
-  const { idToken, start, end, enabled = true } = params
-  const [rows, setRows] = useState<UsageRow[]>([])
+  const { projectId, idToken, start, end, enabled = true } = params
+  const [result, setResult] = useState<{ projectId: string; rows: UsageRow[] }>({ projectId: '', rows: [] })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bump, setBump] = useState(0)
@@ -121,20 +122,22 @@ export function useProjectHourlyUsage(params: UseProjectHourlyUsageParams): UseP
     const ac = new AbortController()
     async function load() {
       setError(null)
-      if (!enabled || (!idToken && !skipAuth)) {
-        setRows([])
+      if (!projectId || !enabled || (!idToken && !skipAuth)) {
+        setResult({ projectId, rows: [] })
         return
       }
       if (!sParam || !eParam) {
-        setRows([])
+        setResult({ projectId, rows: [] })
         return
       }
+      // Hide stale data immediately when the selected project changes.
+      setResult({ projectId, rows: [] })
       setLoading(true)
       try {
         const client = makeApiClient({ idToken: idToken ?? undefined, skipAuth })
         const json: any = await client.llmUsageProjectHourly(
           { start: sParam, end: eParam },
-          { signal: ac.signal }
+          { signal: ac.signal, extraHeaders: { 'x-project-id': projectId } }
         )
         // Prefer common array shapes first
         let arr: any[] = Array.isArray(json) ? json
@@ -169,7 +172,7 @@ export function useProjectHourlyUsage(params: UseProjectHourlyUsageParams): UseP
           const n = normalizeRow(r)
           if (n) next.push(n)
         }
-        if (!cancelled) setRows(next)
+        if (!cancelled) setResult({ projectId, rows: next })
       } catch (e: any) {
         if (!cancelled) setError(e?.message || String(e))
       } finally {
@@ -181,8 +184,10 @@ export function useProjectHourlyUsage(params: UseProjectHourlyUsageParams): UseP
       cancelled = true
       ac.abort()
     }
-  }, [idToken, enabled, sParam, eParam, skipAuth, bump])
+  }, [projectId, idToken, enabled, sParam, eParam, skipAuth, bump])
 
+  // Never render results from the previously selected project, even for one frame.
+  const rows = result.projectId === projectId ? result.rows : []
   const series = useMemo(() => toSeries(rows), [rows])
 
   return { rows, series, loading, error, reload }
