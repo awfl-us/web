@@ -1,0 +1,24 @@
+name: Verify nonblocking workflow submission
+on:
+  pull_request:
+    paths:
+      - 'src/hooks/useWorkflowExec.ts'
+      - 'src/hooks/workflowLaunch.ts'
+      - 'src/hooks/workflowLaunch.test.ts'
+      - 'src/features/sessions/hooks/useSessionModel.ts'
+      - '.github/workflows/check-workflow-submit.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build
+      - run: npm test -- --run
