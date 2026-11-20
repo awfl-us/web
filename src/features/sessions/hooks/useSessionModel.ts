@@ -11,8 +11,9 @@ export type UseSessionModelResult = {
   options: Array<{ value: string; label: string }>
 }
 
-const DEFAULT_MODEL = 'gpt-5'
+const DEFAULT_MODEL = 'gpt-6.1-terra'
 const OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra' },
   { value: 'gpt-5', label: 'GPT-5' },
   { value: 'gpt-4.1', label: 'GPT-4.1' },
   { value: 'gpt-4o', label: 'GPT-4o' },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { makeApiClient } from '../api/apiClient'
+import { nonblockingWorkflowLaunch } from './workflowLaunch'
 
 export type LatestExecItem = {
   execId: string
@@ -138,7 +139,7 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
       // Defensively normalize params: require query and drop unsupported fields like `reason`
       const rawParams = { ...(params || {}) }
       if ('reason' in rawParams) delete (rawParams as any).reason
-      const modelValue = rawParams?.model ?? 'gpt-5'
+      const modelValue = rawParams?.model ?? 'gpt-6.1-terra'
       const fundValue = rawParams?.fund ?? 1
       const finalParams = {
         ...rawParams,
@@ -157,10 +158,14 @@ export function useWorkflowExec(params: UseWorkflowExecParams): UseWorkflowExecR
       try {
         // Await confirmation instead of clearing the composer while the
         // network request is still pending. Surface HTTP errors to callers.
-        await client.workflowsExecute({
-          workflowName,
-          params: execParams,
-        })
+        const response: any = await client.workflowsExecute(nonblockingWorkflowLaunch(workflowName, execParams))
+        // The 202 acknowledges an accepted execution, not its completion.
+        // Follow it through the existing session-status polling mechanism.
+        const executionName = response?.executionName
+        if (typeof executionName === 'string' && executionName.startsWith('native/')) {
+          setLatest({ execId: executionName.slice('native/'.length), status: 'Running' })
+        }
+        setStatus('Running')
         reload()
       } catch (e: any) {
         setError(e?.message || String(e))
