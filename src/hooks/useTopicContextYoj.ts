@@ -4,6 +4,8 @@ import type { YojMessage } from '../types/context'
 
 export type UseTopicContextYojParams = {
   sessionId?: string | null
+  projectId?: string | null
+  userId?: string | null
   idToken?: string | null
   windowSeconds?: number
   enabled?: boolean
@@ -62,10 +64,13 @@ function normalizeYojMessages(arr: any[] | undefined | null): YojMessage[] {
   return out
 }
 
-export function useTopicContextYoj(params: UseTopicContextYojParams): UseTopicContextYojResult {
-  const { sessionId, idToken, windowSeconds = 3600, enabled = true } = params
+const EMPTY_MESSAGES: YojMessage[] = []
 
-  const [messages, setMessages] = useState<YojMessage[]>([])
+export function useTopicContextYoj(params: UseTopicContextYojParams): UseTopicContextYojResult {
+  const { sessionId, projectId, userId, idToken, windowSeconds = 3600, enabled = true } = params
+
+  const scope = JSON.stringify([userId, projectId, sessionId])
+  const [result, setResult] = useState<{scope:string; messages:YojMessage[]}>({scope,messages:[]})
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Use state for the bump so calling reload triggers a re-render and re-runs the effect
@@ -84,7 +89,7 @@ export function useTopicContextYoj(params: UseTopicContextYojParams): UseTopicCo
 
       const skipAuth = (import.meta as any)?.env?.VITE_SKIP_AUTH === '1'
       if (!enabled || !sessionId || (!idToken && !skipAuth)) {
-        setMessages([])
+        setResult({scope,messages:[]})
         return
       }
 
@@ -97,10 +102,10 @@ export function useTopicContextYoj(params: UseTopicContextYojParams): UseTopicCo
           presetId: 'TopicContext',
           includeDocId: true,
         }
-        const json = await client.topicContextYoj(body, { signal: ac.signal })
+        const json = await client.topicContextYoj(body, { signal: ac.signal, ...(projectId ? {extraHeaders:{'x-project-id':projectId}} : {}) })
         const raw = Array.isArray((json as any)?.yoj) ? ((json as any).yoj as any[]) : []
         const yoj = normalizeYojMessages(raw)
-        if (!cancelled) setMessages(yoj)
+        if (!cancelled) setResult({scope,messages:yoj})
       } catch (e: any) {
         if (!cancelled) setError(e?.message || String(e))
       } finally {
@@ -114,7 +119,7 @@ export function useTopicContextYoj(params: UseTopicContextYojParams): UseTopicCo
       cancelled = true
       ac.abort()
     }
-  }, [sessionId, idToken, windowSeconds, enabled, bump])
+  }, [scope, sessionId, projectId, idToken, windowSeconds, enabled, bump])
 
-  return { messages, running, error, reload }
+  return { messages: result.scope === scope ? result.messages : EMPTY_MESSAGES, running, error, reload }
 }

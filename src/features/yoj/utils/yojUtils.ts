@@ -2,6 +2,7 @@ import type { YojMessage } from '../../../types/context'
 
 // Prefer stable keys so expanded state doesn't reset on polling refreshes
 export function getMessageKey(m: YojMessage, idx: number): string {
+  if (m.role === 'assistant' && typeof m.responseId === 'string' && m.responseId && m.responseId !== 'null') return `response:${m.responseId}`
   // Only treat per-message identifiers as authoritative keys; docId alone
   // can be shared across multiple messages and must not be used by itself.
   const msgId = (m as any).id || (m as any).message_id || (m as any)._id

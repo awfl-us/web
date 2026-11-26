@@ -103,6 +103,15 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
   return (
     <div className={styles.yojList}>
       {messages.map((m, idx) => {
+        if (m.liveResponse === true) {
+          const key = getMessageKey(m, idx)
+          return <div key={key} className={styles.row} data-live-response={m.responseId}>
+            <div className={cx(styles.bubble, styles.bubbleAssistant)}>
+              <div className={cx(styles.label, styles.labelAssistant)}>{assistantName?.trim() || 'Assistant'}</div>
+              <pre className={styles.preText}>{m.content}</pre>
+            </div>
+          </div>
+        }
         const execId = getExecId(m as any)
         const rootMarker = extractMarker(m as any)
         const { parsed: parsedContent } = parseJsonLikeWithRemainder((m as any)?.content)

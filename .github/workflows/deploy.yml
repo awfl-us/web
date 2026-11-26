@@ -18,6 +18,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify web and live response state
+        run: |
+          npm ci --include=dev --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+      - name: Verify live response rendering in Chromium
+        run: |
+          npm install --no-save --package-lock=false --include=dev --ignore-scripts playwright@1.58.2
+          npx playwright install --with-deps --only-shell chromium
+          node scripts/test-live-responses-browser.mjs
+      - name: Retain browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-response-browser-evidence
+          path: test-results/
+          if-no-files-found: ignore
+
       - name: Load env from .github/actions-variables.json (if present)
         run: |
           set -euo pipefail

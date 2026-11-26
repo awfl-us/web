@@ -29,6 +29,7 @@ import type { Session } from '../features/sessions/public'
 // Hooks
 import { useSessionsList } from '../features/sessions/public'
 import { useTopicContextYoj } from '../features/yoj/public'
+import { useLiveResponses } from '../features/yoj/hooks/useLiveResponses'
 import { useWorkflowExec, useDebouncedValue, useSessionPolling } from '../core/public'
 import { useTasksCounts, useSessionTasks } from '../features/tasks/public'
 import { usePlainify } from '../features/plain/public'
@@ -220,12 +221,16 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   })
 
   // Topic context messages for selected session (disabled while viewing tasks)
-  const { messages, running, error: execError, reload } = useTopicContextYoj({
+  const { messages: persistedMessages, running, error: execError, reload } = useTopicContextYoj({
     sessionId: sel?.id,
     idToken,
+    projectId,
+    userId: user?.uid,
     windowSeconds: 3600,
     enabled: !!sel && !activeTaskStatus,
   })
+
+  const messages = useLiveResponses({sessionId:sel?.id,projectId,userId:user?.uid,idToken,enabled:!!sel && !activeTaskStatus,messages:persistedMessages,reload})
 
   // Derive latest exec error when latest status is Failed
   const execStatusError = awx.status === 'Failed' ? (awx.latest?.error || 'Execution failed') : null

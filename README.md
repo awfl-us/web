@@ -230,3 +230,7 @@ Defined in .env.local (Vite exposes only VITE_*):
 
 ## License
 MIT © 2025 awfl-us
+
+### Live agent responses
+
+The session page opens the authenticated `/workflows/events/responses/stream` SSE endpoint and renders a transient assistant message from text deltas. Existing TopicContext polling remains authoritative for conversation history, tools, summaries and accounting; a matching persisted `responseId` replaces the live row. A disconnected or disabled stream does not prevent normal execution. Reconnects request snapshots, and scope changes cancel the old stream. The backend must explicitly enable live responses. Main deployment runs TypeScript/Vitest checks and a Chromium fixture (`node scripts/test-live-responses-browser.mjs`, after installing Playwright and Chromium) before publishing the web image. The fixture tests first visible text, growth while pinned to bottom, history-reading position, persistence, scope switching and disabled transport.
