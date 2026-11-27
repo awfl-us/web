@@ -1,36 +1,41 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useCredsApi, type CredMeta } from '../hooks/useCredsApi'
+import { useEffect, useState } from 'react'
+import { useCredsApi } from '../hooks/useCredsApi'
 import { ApiKeysSettings } from './ApiKeysSettings'
 
 export type SettingsPageProps = {
   idToken?: string | null
 }
 
+const PROVIDERS = [
+  { id: 'openai', name: 'OpenAI', placeholder: 'sk-...' },
+  { id: 'opencode', name: 'OpenCode', placeholder: 'Enter OpenCode API key' },
+] as const
+type ProviderId = typeof PROVIDERS[number]['id']
+
 export function SettingsPage(props: SettingsPageProps) {
   const { idToken } = props
   const { creds, loading, error, reload, setCred, deleteCred } = useCredsApi({ idToken, enabled: true })
 
-  const openai: CredMeta | undefined = useMemo(() => creds.find(c => c.provider === 'openai'), [creds])
-
-  const [openaiInput, setOpenaiInput] = useState('')
+  const [inputs, setInputs] = useState<Record<ProviderId, string>>({ openai: '', opencode: '' })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
   useEffect(() => {
     setLocalError(null)
+    setInputs({ openai: '', opencode: '' })
   }, [idToken])
 
-  async function handleSave() {
+  async function handleSave(provider: ProviderId) {
     setLocalError(null)
-    if (!openaiInput.trim()) {
+    if (!inputs[provider].trim()) {
       setLocalError('Please enter an API key value.')
       return
     }
     setSaving(true)
     try {
-      await setCred('openai', openaiInput.trim())
-      setOpenaiInput('')
+      await setCred(provider, inputs[provider].trim())
+      setInputs(previous => ({ ...previous, [provider]: '' }))
       await reload()
     } catch (e: any) {
       setLocalError(e?.message || String(e))
@@ -44,7 +49,7 @@ export function SettingsPage(props: SettingsPageProps) {
     setDeleting(true)
     try {
       await deleteCred(provider)
-      if (provider === 'openai') setOpenaiInput('')
+      if (PROVIDERS.some(p => p.id === provider)) setInputs(previous => ({ ...previous, [provider]: '' }))
       await reload()
     } catch (e: any) {
       setLocalError(e?.message || String(e))
@@ -74,46 +79,52 @@ export function SettingsPage(props: SettingsPageProps) {
           )}
 
           <div style={{ display: 'grid', gap: 12, alignItems: 'start' }}>
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={{ fontWeight: 600 }}>OpenAI API key</label>
-              <div style={{ color: '#6b7280', fontSize: 12 }}>
-                {openai?.hasValue ? (
-                  <>
-                    Status: Set
-                    {openai?.last4 ? ` • ending in ${openai.last4}` : ''}
-                    {openai?.updated ? ` • Updated ${new Date(openai.updated).toLocaleString()}` : ''}
-                  </>
-                ) : (
-                  'Status: Not set'
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="password"
-                  placeholder="sk-..."
-                  value={openaiInput}
-                  onChange={e => setOpenaiInput(e.target.value)}
-                  style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db' }}
-                />
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !openaiInput.trim()}
-                  style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: '#eef2ff' }}
-                >
-                  {openai?.hasValue ? 'Update' : 'Save'}
-                </button>
-                {openai?.hasValue && (
-                  <button
-                    onClick={() => handleDelete('openai')}
-                    disabled={deleting}
-                    title="Delete stored key"
-                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fee2e2' }}
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
+            {PROVIDERS.map(provider => {
+              const cred = creds.find(c => c.provider === provider.id)
+              const input = inputs[provider.id]
+              return (
+                <div key={provider.id} style={{ display: 'grid', gap: 6 }}>
+                  <label htmlFor={`credential-${provider.id}`} style={{ fontWeight: 600 }}>{provider.name} API key</label>
+                  <div style={{ color: '#6b7280', fontSize: 12 }}>
+                    {cred?.hasValue ? (
+                      <>
+                        Status: Set
+                        {cred.last4 ? ` • ending in ${cred.last4}` : ''}
+                        {cred.updated ? ` • Updated ${new Date(cred.updated).toLocaleString()}` : ''}
+                      </>
+                    ) : 'Status: Not set'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <input
+                      id={`credential-${provider.id}`}
+                      type="password"
+                      autoComplete="off"
+                      placeholder={provider.placeholder}
+                      value={input}
+                      onChange={e => setInputs(previous => ({ ...previous, [provider.id]: e.target.value }))}
+                      style={{ flex: 1, minWidth: 0, padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db' }}
+                    />
+                    <button
+                      onClick={() => handleSave(provider.id)}
+                      disabled={saving || deleting || !input.trim()}
+                      style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: '#eef2ff' }}
+                    >
+                      {cred?.hasValue ? 'Update' : 'Save'}
+                    </button>
+                    {cred?.hasValue && (
+                      <button
+                        onClick={() => handleDelete(provider.id)}
+                        disabled={saving || deleting}
+                        title={`Delete stored ${provider.name} key`}
+                        style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fee2e2' }}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
 
             {loading ? (
               <div style={{ color: '#6b7280' }}>Loading…</div>
@@ -133,7 +144,7 @@ export function SettingsPage(props: SettingsPageProps) {
                       </div>
                       <button
                         onClick={() => handleDelete(c.provider)}
-                        disabled={deleting}
+                        disabled={saving || deleting}
                         style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fee2e2' }}
                       >
                         Delete
@@ -147,6 +158,14 @@ export function SettingsPage(props: SettingsPageProps) {
         </section>
 
         <ApiKeysSettings idToken={idToken} />
+
+        <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 16 }}>How to get an OpenCode API key</h3>
+          <p style={{ margin: 0, fontSize: 14 }}>
+            Sign in to the <a href="https://opencode.ai/console" target="_blank" rel="noreferrer">OpenCode Console</a>,
+            add credits, create an API key, and save it above. Choose an OpenCode model in the session model selector.
+          </p>
+        </section>
 
         {/* OpenAI setup instructions */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 }}>

@@ -17,6 +17,16 @@ const OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'gpt-5', label: 'GPT-5' },
   { value: 'gpt-4.1', label: 'GPT-4.1' },
   { value: 'gpt-4o', label: 'GPT-4o' },
+  { value: 'opencode/gpt-6.2-sol', label: 'GPT-6.2 Sol (OpenCode)' },
+  { value: 'opencode/gpt-6-luna', label: 'GPT-6 Luna (OpenCode)' },
+  { value: 'opencode/claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (OpenCode)' },
+  { value: 'opencode/claude-opus-5-5', label: 'Claude Opus 5.5 (OpenCode)' },
+  { value: 'opencode/gemini-4-argon', label: 'Gemini 4 Argon (OpenCode)' },
+  { value: 'opencode/gemini-3.8-flash', label: 'Gemini 3.8 Flash (OpenCode)' },
+  { value: 'opencode/deepseek-v4.1-flash', label: 'DeepSeek V4.1 Flash (OpenCode)' },
+  { value: 'opencode/deepseek-v4-pro', label: 'DeepSeek V4 Pro (OpenCode)' },
+  { value: 'opencode/glm-5.3', label: 'GLM 5.3 (OpenCode)' },
+  { value: 'opencode/kimi-k2.7-code', label: 'Kimi K2.7 Code (OpenCode)' },
 ]
 
 function keyFor(sessionId: string | null) {

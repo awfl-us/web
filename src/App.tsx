@@ -103,7 +103,7 @@ function App() {
                       overflowWrap: 'anywhere',
                     }}
                   >
-                    You need to add an OpenAI API key in Settings to use agents
+                    Add an OpenAI or OpenCode API key in Settings to use agents
                   </div>
                 )}
               </div>
