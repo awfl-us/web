@@ -1,0 +1,44 @@
+.workspace {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: var(--awfl-workspace-padding, 16px);
+  gap: var(--awfl-workspace-gap, 16px);
+}
+.workspace[data-navigation="right"] { flex-direction: row-reverse; }
+.navigation {
+  display: flex;
+  flex: 0 1 calc(var(--awfl-navigation-width, 320px) + 48px);
+  max-width: 45%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.navigationContent {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--awfl-workspace-gap, 12px);
+  overflow: hidden;
+}
+.workspace[data-mobile="true"] {
+  padding: var(--awfl-mobile-padding, 8px);
+  padding-bottom: max(var(--awfl-mobile-padding, 8px), env(safe-area-inset-bottom, 0px));
+}
+.workspace[data-mobile="true"] .navigation { flex: 1; max-width: 100%; }
+.workspace[data-mobile="true"][data-pane="detail"] .navigation,
+.workspace[data-mobile="true"][data-pane="list"] .main { display: none; }

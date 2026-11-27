@@ -16,7 +16,7 @@ export function SessionSidebar(props: SessionSidebarProps) {
   const { sessions, selectedId, onSelect, loading, error, query, onQueryChange, onCreateNew } = props
 
   return (
-    <div style={{ width: 320, maxWidth: '100%', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+    <div style={{ width: 'var(--awfl-navigation-width, 320px)', maxWidth: '100%', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
       <div style={{ padding: 12, borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 8 }}>
         <input
           type="search"

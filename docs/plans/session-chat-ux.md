@@ -1,6 +1,6 @@
 # Session chat UX redesign
 
-Status: planned (2026-11-27). Baseline: `0433845` on main. This is a planning commit, not implementation.
+Status: in progress (2026-11-27). Baseline: `0433845`; plan: `4e59cf8`. Phase 0 audited the implementation path; first Phase 1 checkpoint implemented.
 
 ## Goal and evidence
 
@@ -41,12 +41,12 @@ Follow `AGENT.md`: thin page, feature-owned hooks/mappers, public barrels and re
 Each phase starts by investigating existing architecture, data contracts, public consumers and tests; update this plan with findings, decisions, acceptance evidence, commit/PR links and remaining work before proceeding. Land small independently deployable changes via normal main CI/CD; isolate worktrees; retain existing behavior until replacement parity. Ship usable improvements incrementally.
 
 ### 0 — Architecture audit and baseline
-- [ ] Inventory `App.tsx`, `Sessions.tsx`, `SessionDetail`, `SessionHeader`, `SessionItemsView`, `PromptComposer`, `YojMessageList`, `ExecGutter`, sidebar, tasks/files, global CSS, style props and public package/Rollup/declaration exports.
-- [ ] Audit `useScrollHome`, `useLiveResponses`, `useTopicContextYoj`, submission/stop/queue, SSE/persisted history, task/environment/workflow statuses. Identify available signals and backend gaps; finalize token/layout ownership and compatibility.
+- [x] Inventory `App.tsx`, `Sessions.tsx`, `SessionDetail`, `SessionHeader`, `SessionItemsView`, `PromptComposer`, `YojMessageList`, `ExecGutter`, sidebar, tasks/files, global CSS, style props and public package/Rollup/declaration exports.
+- [x] Audit `useScrollHome`, `useLiveResponses`, `useTopicContextYoj`, submission/stop/queue, SSE/persisted history, task/environment/workflow statuses. Identify available signals and backend gaps; finalize token/layout ownership and compatibility.
 - [ ] Record desktop/mobile screenshots and baseline behavior; deterministic fixtures for idle, streaming, running, concurrent, errors, nested groups, tasks/files. Verify authenticated production if possible; distinguish fixtures. Preserve current CI streaming fixture.
 
 ### 1 — Customization foundation and urgent composer fix
-- [ ] Investigate CSS variables, responsive behavior, modal focus and current style props; settle minimal schema/slots before implementation.
+- [x] Investigate CSS variables, responsive behavior, modal focus and current style props; settle minimal schema/slots before implementation.
 - [ ] Implement scoped tokens, CSS Modules, presets, preference plumbing and dev playground; migrate touched components only. Test visibly distinct preset and preserve package styles/exports.
 - [ ] Full-width auto-growing textarea, secondary toolbar for attachment/model/budget/send. Shift+Enter, IME, accessible keyboard, safe areas and mobile keyboard. Separate Stop from Send/Queue; show accurate sending/accepted/error state; preserve failed/new drafts. Scope draft state to account/project/session with documented local retention and isolation; no server persistence. Keep upload; investigate drag/drop and pasted image support.
 - [ ] Test 320/390/768/1440px with long model names and running/submitting state: no clipped input/overflow, controls reachable, drafts retained, stop/queue unchanged. Verify alternative theme/layout without execution changes.
@@ -94,3 +94,12 @@ Each phase starts by investigating existing architecture, data contracts, public
 - Starting layout is a configurable three-panel desktop and single-pane mobile; neutral visual style is provisional. Prefer typed config, scoped CSS and local appearance persistence rather than server-managed themes or unrestricted page builder. Revisit if cross-device sync requested.
 - Backend support for queue cancellation, precise spend, diffs, status and session mutations must be verified before exposing controls. No backend changes in this planning commit.
 - Authenticated production inspection remains pending. All implementation phases pending; next Phase 0, then foundation/composer.
+
+
+## 2026-11-27 — Phase 0 / Phase 1 checkpoint
+
+- Architecture findings: the app page is the session controller; `SessionDetail` composes existing header, timeline and composer. Existing Yoj groups, execution gutter, scroll hook and SSE merge remain independent. Current task mode disables message polling and SSE; moving tasks into an inspector must intentionally keep the timeline mounted (Phase 4). The submission path awaits `awx.execute({query, model, fund})`, and stop includes descendants. Backend state is not sufficient to infer all planned real-time statuses, operation outcomes or per-message cancellation; verify server contracts in the relevant phases.
+- The first implementation uses existing CSS Modules, a scoped token stylesheet, a versioned typed appearance model (theme, density, navigation side/width, composer max width), and a pure `SessionWorkspaceLayout` with named React slots. It retains the existing 320px navigation default (plus its rail) during migration; the earlier 240–280px proposal remains tunable. No new production dependencies, data hooks or endpoints. Existing `--yoj-*` overrides are untouched until timeline migration. Full dark styling, the inspector, user-facing appearance controls and preset import/export are still pending.
+- The composer is now a full-width growing textarea above a wrapping control bar; model/budget/upload/send/stop/status are available, existing submission/stop callback contracts preserved, and Enter vs Shift+Enter and IME handled. Scoped, revisioned drafts survive tab reload and session changes using sessionStorage (not server or durable localStorage); acknowledgement clears only the submitted revision. Draft retention is the browser tab lifetime; failed drafts remain. Existing upload modal retained. Drag/drop, paste, actual on-device keyboard testing, additional focus/screen-reader work and concurrent submission edge cases remain to be validated.
+- Baseline: TypeScript and 24 unit tests passed. New tests: 26 unit tests passed; Chromium composer fixture measured input width 282/352/367/878px at 320/390/768/1440px, with long model names and running workflow controls. Verified multiline submission, budget/model value, errors, failure retention, switching sessions, preserving a new draft during acknowledgement, theme/layout changes, reload/reset and Stop. First run found a too-short model selector target at 320px; fixed and passed. Existing streaming fixture passed (first visible text 109ms in the local run, not a production latency metric). Lint reported no errors and 27 warnings (one new fixture fast-refresh warning, corrected by exporting the component). Library and declaration builds passed; extracted CSS includes the new tokens.
+- Added `scripts/session-ux-browser.html` as a local fixture/playground and `scripts/test-session-ux-browser.mjs` to deploy CI alongside the existing streaming check. The initial presets affect only migrated controls, not all legacy panels. The current browser tests use synthetic messages and mocked callbacks, not authenticated production or an actual mobile keyboard. Broad concurrent/nested/task/file fixture coverage remains open. Phase 1 is partially complete; next finish validation and expand rich message rendering/theme migration in Phase 2. See the customization guide for current override points.

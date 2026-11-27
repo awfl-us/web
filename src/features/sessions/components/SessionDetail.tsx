@@ -19,6 +19,7 @@ export interface SessionDetailProps {
   onBack?: () => void
   // New: right-side extras area (e.g., Model selector)
   extrasRight?: React.ReactNode
+  composerExtras?: React.ReactNode
 
   // Items (messages/tasks)
   execError?: string | null
@@ -39,6 +40,7 @@ export interface SessionDetailProps {
   topRef?: Ref<HTMLDivElement | null>
 
   // Identity for collapse state persistence
+  draftScope?: string
   sessionId?: string | null
   idToken?: string | null
 
@@ -81,6 +83,7 @@ export function SessionDetail(props: SessionDetailProps) {
     bottomRef,
     topRef,
     sessionId,
+    draftScope,
     idToken,
     promptPlaceholder,
     promptDisabled,
@@ -91,6 +94,7 @@ export function SessionDetail(props: SessionDetailProps) {
     onStop,
     execStatusError,
     extrasRight,
+    composerExtras,
   } = props
 
   // Rolling avg $/hr computed over the loaded messages window (SegKala: default 60m).
@@ -147,6 +151,7 @@ export function SessionDetail(props: SessionDetailProps) {
     <section
       style={{
         display: 'flex',
+        flex: 1,
         flexDirection: 'column',
         gap: 10,
         alignItems: 'stretch',
@@ -201,6 +206,8 @@ export function SessionDetail(props: SessionDetailProps) {
 
       {/* Prompt composer */}
       <PromptComposer
+        draftScope={draftScope}
+        toolbarExtras={composerExtras}
         placeholder={promptPlaceholder || 'Type a prompt…'}
         disabled={!!promptDisabled}
         submitting={submitting}

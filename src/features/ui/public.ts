@@ -1,2 +1,6 @@
+import './theme/tokens.css'
 export { Tooltip } from './components/Tooltip'
 export type { TooltipProps } from './components/Tooltip'
+export { defaultAppearance, normalizeAppearance } from './theme/appearance'
+export type { Appearance } from './theme/appearance'
+export { useAppearance } from './theme/useAppearance'

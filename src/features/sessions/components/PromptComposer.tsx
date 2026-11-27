@@ -1,4 +1,6 @@
-import React, { useCallback, useMemo, useState, type FormEvent } from 'react'
+import React, { useCallback, useMemo, useState, useLayoutEffect, useRef, useEffect, type FormEvent } from 'react'
+import styles from './PromptComposer.module.css'
+import { readDraft, saveDraft, clearAcknowledgedDraft } from './composerDraft'
 import { FileUploadModal } from '../../filesystem/public'
 
 /**
@@ -15,6 +17,9 @@ import { FileUploadModal } from '../../filesystem/public'
  */
 export interface PromptComposerProps {
   placeholder?: string
+  toolbarExtras?: React.ReactNode
+  /** Optional account/project/session scope for tab-local draft persistence. */
+  draftScope?: string
   disabled?: boolean
   submitting?: boolean
   wfStatus?: string | null
@@ -55,8 +60,14 @@ export interface PromptComposerProps {
 }
 
 export function PromptComposer(props: PromptComposerProps) {
+  return <ScopedPromptComposer key={props.draftScope ?? props.uploadSessionId ?? 'unscoped'} {...props} />
+}
+
+function ScopedPromptComposer(props: PromptComposerProps) {
   const {
     placeholder,
+    toolbarExtras,
+    draftScope,
     disabled,
     submitting,
     wfStatus,
@@ -87,19 +98,55 @@ export function PromptComposer(props: PromptComposerProps) {
     stopStyle,
     statusClassName,
     statusStyle,
-    submitLabel = 'Submit',
+    submitLabel = 'Send',
     submittingLabel = 'Submitting…',
     stopLabel = 'Stop',
     statusText,
   } = props
 
-  const [text, setText] = useState('')
+  const [draft, setDraft] = useState(() => readDraft(draftScope))
+  const text = draft.text
+  const sendingRef = useRef(false)
+  const changeDraft = (text: string) => {
+    const next = { text, revision: globalThis.crypto?.randomUUID?.() ?? String(Date.now()) + Math.random() }
+    setDraft(next)
+    saveDraft(draftScope, next)
+  }
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const input = inputRef.current
+    if (!input || inputStyle?.height != null) return
+    const resize = () => {
+      input.style.height = 'auto'
+      input.style.height = input.scrollHeight + 'px'
+    }
+    resize()
+    let width = input.clientWidth
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+      if (input.clientWidth === width) return
+      width = input.clientWidth
+      resize()
+    })
+    observer?.observe(input)
+    return () => observer?.disconnect()
+  }, [text, inputStyle?.height])
+  useEffect(() => {
+    if (!draftScope) return
+    const listener = (event: Event) => {
+      const detail = (event as CustomEvent<{ scope: string; revision: string }>).detail
+      if (detail.scope === draftScope) {
+        setDraft(current => current.revision === detail.revision ? { text: '', revision: '' } : current)
+      }
+    }
+    window.addEventListener('awfl:draft-ack', listener)
+    return () => window.removeEventListener('awfl:draft-ack', listener)
+  }, [draftScope])
   const [sending, setSending] = useState(false)
   const [submissionError, setSubmissionError] = useState<string | null>(null)
   const [fund, setFund] = useState(1)
   const [uploadOpen, setUploadOpen] = useState(false)
 
-  // Allow submitting even while a submission is in flight or workflow is running; backend queues queries.
+  // Allow sending while a workflow runs, but wait for the current submission acknowledgement.
   const canSubmit = useMemo(() => {
     return !disabled && !sending && (text?.trim()?.length ?? 0) > 0
   }, [disabled, sending, text])
@@ -107,22 +154,25 @@ export function PromptComposer(props: PromptComposerProps) {
   const handleSubmit = useCallback(
     async (e?: FormEvent) => {
       e?.preventDefault?.()
-      if (!canSubmit) return
+      if (!canSubmit || sendingRef.current) return
+      sendingRef.current = true
       const payload = text.trim()
       setSubmissionError(null)
       setSending(true)
       try {
         await onSubmit(payload, fund)
         // Preserve any new draft the user typed while awaiting confirmation.
-        setText(current => current.trim() === payload ? '' : current)
+        clearAcknowledgedDraft(draftScope, draft.revision)
+        setDraft(current => current.revision === draft.revision ? {text: '', revision: ''} : current)
       } catch (error) {
         // Never discard the prompt when the request fails.
         setSubmissionError(error instanceof Error ? error.message : String(error))
       } finally {
+        sendingRef.current = false
         setSending(false)
       }
     },
-    [canSubmit, fund, onSubmit, text]
+    [canSubmit, fund, onSubmit, text, draft.revision, draftScope]
   )
 
   const handleUploadClick = useCallback(() => {
@@ -135,149 +185,67 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [disabled, onOpenUpload])
 
   return (
-    <div className={containerClassName} style={containerStyle}>
-      <form onSubmit={handleSubmit} className={formClassName} style={{ display: 'flex', flexDirection: 'column', gap: 8, ...(formStyle || {}) }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-          {showUploadButton ? (
-            <button
-              type="button"
-              onClick={handleUploadClick}
-              disabled={!!disabled}
-              className={uploadButtonClassName}
-              style={{
-                borderRadius: 8,
-                border: '1px solid #d1d5db',
-                background: disabled ? '#f9fafb' : '#ffffff',
-                color: '#111827',
-                padding: 8,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                ...(uploadButtonStyle || {}),
-              }}
-              aria-label={uploadButtonAriaLabel}
-              title={uploadButtonTitle}
-            >
-              {/* Plus icon */}
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
+    <div className={[styles.container, containerClassName].filter(Boolean).join(' ')} style={containerStyle} data-awfl-slot="composer">
+      <form onSubmit={handleSubmit} className={[styles.form, formClassName].filter(Boolean).join(' ')} style={formStyle}>
+        <textarea
+          ref={inputRef}
+          rows={2}
+          aria-label="Message"
+          value={text}
+          onChange={(e) => { changeDraft(e.currentTarget.value); setSubmissionError(null) }}
+          placeholder={placeholder || 'Type a prompt…'}
+          disabled={!!disabled}
+          className={[styles.input, inputClassName].filter(Boolean).join(' ')}
+          style={inputStyle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+              e.preventDefault()
+              void handleSubmit()
+            }
+          }}
+        />
+        <div className={styles.toolbar} data-awfl-slot="composer-toolbar">
+          <div className={styles.controls}>
+            {showUploadButton && (
+              <button type="button" onClick={handleUploadClick} disabled={!!disabled}
+                className={[styles.control, styles.upload, uploadButtonClassName].filter(Boolean).join(' ')}
+                style={uploadButtonStyle} aria-label={uploadButtonAriaLabel} title={uploadButtonTitle}>
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            )}
+            {toolbarExtras}
+            <select value={fund} onChange={(e) => setFund(Number(e.currentTarget.value))}
+              disabled={!!disabled} aria-label="Workflow fund" title="Workflow fund" className={styles.control}>
+              <option value={5}>$5</option>
+              <option value={2.5}>$2½</option>
+              <option value={1}>$1</option>
+              <option value={0.3}>30¢</option>
+            </select>
+          </div>
+          <div className={styles.run}>
+            {!!(wfStatus || statusText) && (
+              <span title="Workflow status" role="status"
+                className={[styles.status, statusClassName].filter(Boolean).join(' ')} style={statusStyle}>
+                {statusText ?? wfStatus}
+              </span>
+            )}
+            {wfRunning && (
+              <button type="button" onClick={() => onStop?.()}
+                className={[styles.control, styles.stop, stopClassName].filter(Boolean).join(' ')} style={stopStyle}>
+                {stopLabel}
+              </button>
+            )}
+            <button type="submit" disabled={!canSubmit}
+              className={[styles.control, styles.submit, submitClassName].filter(Boolean).join(' ')}
+              style={submitStyle} aria-busy={sending || submitting || undefined}>
+              {sending || submitting ? submittingLabel : submitLabel}
             </button>
-          ) : null}
-
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => { setText(e.currentTarget.value); setSubmissionError(null) }}
-            placeholder={placeholder || 'Type a prompt…'}
-            disabled={!!disabled}
-            className={inputClassName}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              padding: '8px 10px',
-              outline: 'none',
-              ...(inputStyle || {}),
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSubmit()
-              }
-            }}
-          />
-          <select
-            value={fund}
-            onChange={(e) => setFund(Number(e.currentTarget.value))}
-            disabled={!!disabled}
-            aria-label="Workflow fund"
-            title="Workflow fund"
-            style={{
-              borderRadius: 8,
-              border: '1px solid #d1d5db',
-              background: disabled ? '#f9fafb' : '#ffffff',
-              color: '#111827',
-              padding: '8px 10px',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <option value={5}>$5</option>
-            <option value={2.5}>$2½</option>
-            <option value={1}>$1</option>
-            <option value={0.3}>30¢</option>
-          </select>
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className={submitClassName}
-            style={{
-              borderRadius: 8,
-              border: '1px solid #10b981',
-              background: canSubmit ? '#10b981' : '#a7f3d0',
-              color: canSubmit ? 'white' : '#064e3b',
-              padding: '8px 12px',
-              cursor: canSubmit ? 'pointer' : 'not-allowed',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              ...(submitStyle || {}),
-            }}
-            aria-busy={submitting || undefined}
-          >
-            {submitting ? submittingLabel : submitLabel}
-          </button>
-          {wfRunning ? (
-            <button
-              type="button"
-              onClick={() => onStop?.()}
-              className={stopClassName}
-              style={{
-                borderRadius: 8,
-                border: '1px solid #b91c1c',
-                background: '#fee2e2',
-                color: '#7f1d1d',
-                padding: '8px 12px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-                ...(stopStyle || {}),
-              }}
-            >
-              {stopLabel}
-            </button>
-          ) : null}
-          {!!(wfStatus || statusText) && (
-            <span
-              title="Workflow status"
-              className={statusClassName}
-              style={{
-                fontSize: 12,
-                color: '#111827',
-                background: '#f3f4f6',
-                border: '1px solid #e5e7eb',
-                borderRadius: 999,
-                padding: '2px 8px',
-                whiteSpace: 'nowrap',
-                alignSelf: 'center',
-                ...(statusStyle || {}),
-              }}
-            >
-              {statusText ?? wfStatus}
-            </span>
-          )}
+          </div>
         </div>
       </form>
-      {submissionError && (
-        <p role="alert" style={{ margin: 0, color: '#b91c1c', fontSize: 13 }}>
-          Submission failed: {submissionError}
-        </p>
-      )}
-
+      {submissionError && <p role="alert" className={styles.error}>Submission failed: {submissionError}</p>}
       {/* Built-in upload modal */}
       {showUploadButton && !onOpenUpload ? (
         <FileUploadModal

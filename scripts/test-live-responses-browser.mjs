@@ -42,7 +42,7 @@ const address=server.httpServer.address()
 const url='http://127.0.0.1:'+address.port+'/scripts/live-responses-browser.html'
 let browser
 try{
-  browser=await chromium.launch({headless:true,args:['--no-sandbox']})
+  browser=await chromium.launch({headless:true,args:['--no-sandbox'],...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})})
   const page=await browser.newPage({viewport:{width:900,height:700}})
   const errors=[];page.on('pageerror',e=>errors.push(e.message))
   const scroll=page.locator('[data-fixture-scroll] > div').first()

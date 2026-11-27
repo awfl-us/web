@@ -24,3 +24,4 @@ export { mergeSessions } from './utils/mergeSessions'
 
 // Types (re-export via local wrapper)
 export type { Session } from './types/session'
+export { SessionWorkspaceLayout, SESSION_MOBILE_QUERY } from './layout/SessionWorkspaceLayout'

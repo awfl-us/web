@@ -62,7 +62,7 @@ projects
 
 sessions
 - Exports
-  - Components: SessionSidebar, SessionDetail
+  - Components: SessionSidebar, SessionDetail, PromptComposer, ModelSelector, SessionWorkspaceLayout
   - Hooks: useSessionsList, useScrollHome, useSessionPolling
   - Utils: filterSessionsByQuery, mapTopicInfoToSession
   - Types: Session
@@ -109,6 +109,10 @@ workflows
 - Used in
   - src/features/agents/AgentModal.tsx: WorkflowSelector
   - src/features/agents/hooks/useAgentModalController.ts: useWorkflowsList
+
+ui
+- Exports: Tooltip, Appearance, defaultAppearance, normalizeAppearance, useAppearance. The public barrel loads scoped theme defaults.
+- Used in: session workspace layout, Sessions page and development playground.
 
 yoj
 - Exports

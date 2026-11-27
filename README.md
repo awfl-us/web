@@ -7,7 +7,7 @@ This README gives a quick overview, how to set up and run locally, and developme
 
 ## Session chat redesign
 
-See the [session chat UX redesign plan](docs/plans/session-chat-ux.md) for phased delivery, theme/layout customization and regression gates.
+See the [session chat UX redesign plan](docs/plans/session-chat-ux.md) for phased delivery, theme/layout customization and regression gates. See the [current appearance customization guide](docs/session-appearance.md) for the first implementation and local playground.
 
 ## Using @awfl/web as a library (components + CSS)
 We publish the source as an ES module package with extracted CSS.

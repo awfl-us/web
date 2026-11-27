@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import { useAppearance } from '../features/ui/public'
 
 // Components & hooks from features
 import {
@@ -15,6 +16,8 @@ import {
   mergeSessions,
   ModelSelector,
   useSessionModel,
+  SessionWorkspaceLayout,
+  SESSION_MOBILE_QUERY,
 } from '../features/sessions/public'
 import { TaskModal } from '../features/tasks/public'
 import { AgentModal, useAgentModalController, useSessionAgentConfig, useAgentsApi, useAgentWorkflowExecute } from '../features/agents/public'
@@ -38,6 +41,7 @@ import { useScrollHome} from '../features/sessions/public'
 export default function Sessions(props: { projectId?: string | null } = {}) {
   const { projectId = null } = props
   const { idToken, user } = useAuth()
+  const { appearance } = useAppearance(user?.uid || null)
   const [query, setQuery] = useState('')
   const [leftPanel, setLeftPanel] = useState<'sessions' | 'fs'>('sessions')
 
@@ -48,10 +52,10 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const agentsApi = useAgentsApi({ idToken })
 
   // Mobile detection and pane state
-  const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia('(max-width: 640px)').matches : false)
+  const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(SESSION_MOBILE_QUERY).matches : false)
   useEffect(() => {
     if (!('matchMedia' in window)) return
-    const mq = window.matchMedia('(max-width: 640px)')
+    const mq = window.matchMedia(SESSION_MOBILE_QUERY)
     const onChange = () => setIsMobile(mq.matches)
     mq.addEventListener ? mq.addEventListener('change', onChange) : mq.addListener(onChange)
     onChange()
@@ -301,27 +305,8 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   const fileEditor = useFileEditorController({ idToken, enabled: !!sel, sessionId: sel?.id || null })
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        height: '100%',
-        boxSizing: 'border-box',
-        minHeight: 0,
-        overflow: 'hidden',
-        overflowX: 'hidden',
-        padding: 16,
-        gap: 16,
-        maxWidth: '100%',
-      }}
-    >
-      <div
-        style={{
-          height: '100%',
-          minHeight: 0,
-          display: isMobile ? (pane === 'list' ? 'flex' : 'none') : 'flex',
-          overflow: 'hidden',
-        }}
-      >
+    <SessionWorkspaceLayout mobile={isMobile} pane={pane} appearance={appearance}
+      navigation={
         <SidebarNav
           items={[
             { key: 'sessions', label: 'S', title: 'Sessions' },
@@ -330,15 +315,9 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
           selectedKey={leftPanel}
           onSelect={(key: string) => setLeftPanel(key === 'fs' ? 'fs' : 'sessions')}
         />
-        <div
-          style={{
-            height: '100%',
-            minHeight: 0,
-            overflow: 'auto',
-            overscrollBehavior: 'contain',
-          }}
-        >
-          {leftPanel === 'sessions' ? (
+      }
+      navigationContent={
+          leftPanel === 'sessions' ? (
             <SessionSidebar
               sessions={filterSessionsByQuery(mergedSessions, debouncedQuery)}
               selectedId={selectedId}
@@ -363,24 +342,10 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
               onPlainify={handleFsPlainify}
               onOpenFile={fileEditor.open}
             />
-          )}
-        </div>
-      </div>
-
-      <main
-        style={{
-          flex: 1,
-          minWidth: 0,
-          minHeight: 0,
-          display: isMobile ? (pane === 'detail' ? 'flex' : 'none') : 'flex',
-          flexDirection: 'column',
-          gap: 12,
-          alignItems: 'stretch',
-          overflow: 'hidden',
-          maxWidth: '100%',
-        }}
-      >
-        {!sel ? (
+          )
+      }
+      conversation={
+        !sel ? (
           <div style={{ color: '#6b7280', textAlign: 'left' }}>Select a session to view details.</div>
         ) : (
           <SessionDetail
@@ -405,9 +370,10 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             bottomRef={bottomRef}
             topRef={topRef}
             // Identity for collapse state persistence
+            draftScope={user?.uid && projectId ? JSON.stringify([user.uid, projectId, sel.id]) : undefined}
             sessionId={sel.id}
             idToken={idToken}
-            promptPlaceholder={effectiveWorkflowName ? `Trigger workflow ${effectiveWorkflowName}…` : 'Select a session to trigger workflow'}
+            promptPlaceholder={effectiveWorkflowName ? `Message ${assistantName || effectiveWorkflowName}…` : 'Select a session to trigger workflow'}
             wfStatus={awx.status}
             wfRunning={awx.running}
             submitting={submitting}
@@ -418,11 +384,11 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
             assistantName={assistantName}
             hideExecGutter={isMobile}
             execStatusError={execStatusError}
-            extrasRight={<ModelSelector model={model} options={modelOptions} onChange={setModel} />}
+            composerExtras={<ModelSelector model={model} options={modelOptions} onChange={setModel} />}
           />
-        )}
-      </main>
-
+        )
+      }
+    >
       <TaskModal
         open={taskModalOpen}
         mode={taskModalMode}
@@ -474,6 +440,6 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
           if (isMobile) setPane('detail')
         }}
       />
-    </div>
+    </SessionWorkspaceLayout>
   )
 }

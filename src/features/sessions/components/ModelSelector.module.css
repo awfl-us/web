@@ -1,0 +1,30 @@
+.model {
+  color-scheme: var(--awfl-color-scheme-default, light);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--awfl-control-height, var(--awfl-control-default, 44px));
+  box-sizing: border-box;
+  padding: 0 8px;
+  color: var(--awfl-text, var(--awfl-text-default, #17232d));
+  background: var(--awfl-muted, var(--awfl-muted-default, #f5f6f8));
+  border: 1px solid var(--awfl-border, var(--awfl-border-default, #cbd5e1));
+  border-radius: var(--awfl-control-radius, 8px);
+  font-size: 13px;
+}
+.model select {
+  min-height: var(--awfl-control-height, var(--awfl-control-default, 44px));
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+.model select:focus-visible {
+  outline: 2px solid var(--awfl-focus, var(--awfl-focus-default, #2563eb));
+}

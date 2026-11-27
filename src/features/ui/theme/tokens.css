@@ -1,0 +1,52 @@
+/* Scoped defaults; host overrides on an ancestor can supply --awfl-* variables.
+   Component aliases fall back to semantic tokens, then these base values. */
+:where([data-awfl-theme]) {
+  --awfl-palette-slate: #26343f;
+  --awfl-palette-white: #ffffff;
+  --awfl-palette-gray: #f5f6f8;
+  --awfl-palette-line: #cbd5e1;
+  --awfl-space-unit: 4px;
+  --awfl-font-default: system-ui, sans-serif;
+  --awfl-surface-default: var(--awfl-palette-white);
+  --awfl-muted-default: var(--awfl-palette-gray);
+  --awfl-text-default: #17232d;
+  --awfl-secondary-default: #475569;
+  --awfl-border-default: var(--awfl-palette-line);
+  --awfl-accent-default: var(--awfl-palette-slate);
+  --awfl-on-accent-default: #ffffff;
+  --awfl-error-default: #b91c1c;
+  --awfl-focus-default: #2563eb;
+  --awfl-radius-default: 12px;
+  --awfl-control-default: 44px;
+  --awfl-color-scheme-default: light;
+  --awfl-gap-default: calc(2 * var(--awfl-space-unit));
+}
+:where([data-awfl-theme="dark"]) {
+  --awfl-surface-default: #18212b;
+  --awfl-muted-default: #253140;
+  --awfl-text-default: #f0f4f8;
+  --awfl-secondary-default: #c3ceda;
+  --awfl-border-default: #526174;
+  --awfl-accent-default: #a8c9f6;
+  --awfl-on-accent-default: #17232d;
+  --awfl-error-default: #fca5a5;
+  --awfl-focus-default: #93c5fd;
+  --awfl-color-scheme-default: dark;
+}
+:where([data-awfl-density="compact"]) {
+  --awfl-gap-default: var(--awfl-space-unit, 4px);
+}
+@media (prefers-color-scheme: dark) {
+  :where([data-awfl-theme="system"]) {
+    --awfl-surface-default: #18212b;
+    --awfl-muted-default: #253140;
+    --awfl-text-default: #f0f4f8;
+    --awfl-secondary-default: #c3ceda;
+    --awfl-border-default: #526174;
+    --awfl-accent-default: #a8c9f6;
+    --awfl-on-accent-default: #17232d;
+    --awfl-error-default: #fca5a5;
+    --awfl-focus-default: #93c5fd;
+    --awfl-color-scheme-default: dark;
+  }
+}
