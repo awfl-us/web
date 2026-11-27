@@ -142,7 +142,8 @@ Patterns to follow
   - Tolerate nulls/missing fields and log/skip bad docs.
 - UI
   - Keep presentational components stateless and focused on rendering.
-  - Use small inline styles or existing design tokens; avoid global changes.
+  - For session redesign work, follow [the session chat UX plan](docs/plans/session-chat-ux.md). Keep styling in scoped tokens/CSS Modules and layout in typed configuration and named slots, independent of hooks and execution behavior.
+- Preserve existing customization hooks and package consumers. Avoid new hard-coded inline presentation styles; dynamic geometry may use validated layout state.
 - API client
   - Add a new method for each workflow/route; do not inline fetch in components or hooks.
   - Centralize headers and body auth semantics.

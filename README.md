@@ -5,6 +5,10 @@ AWFL Web is a React front‑end for exploring workflow "sessions", inspecting em
 This README gives a quick overview, how to set up and run locally, and development guidelines that align with the Sessions page architecture described in AGENT.md.
 
 
+## Session chat redesign
+
+See the [session chat UX redesign plan](docs/plans/session-chat-ux.md) for phased delivery, theme/layout customization and regression gates.
+
 ## Using @awfl/web as a library (components + CSS)
 We publish the source as an ES module package with extracted CSS.
 
