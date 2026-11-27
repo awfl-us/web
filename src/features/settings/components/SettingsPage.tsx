@@ -9,21 +9,26 @@ export type SettingsPageProps = {
 const PROVIDERS = [
   { id: 'openai', name: 'OpenAI', placeholder: 'sk-...' },
   { id: 'opencode', name: 'OpenCode', placeholder: 'Enter OpenCode API key' },
+  { id: 'deepseek', name: 'DeepSeek', placeholder: 'Enter DeepSeek API key' },
+  { id: 'anthropic', name: 'Anthropic', placeholder: 'Enter Anthropic API key' },
+  { id: 'gemini', name: 'Google Gemini', placeholder: 'Enter Gemini API key' },
+  { id: 'grok', name: 'xAI', placeholder: 'Enter xAI API key' },
 ] as const
 type ProviderId = typeof PROVIDERS[number]['id']
+const emptyInputs = () => Object.fromEntries(PROVIDERS.map(p => [p.id, ''])) as Record<ProviderId, string>
 
 export function SettingsPage(props: SettingsPageProps) {
   const { idToken } = props
   const { creds, loading, error, reload, setCred, deleteCred } = useCredsApi({ idToken, enabled: true })
 
-  const [inputs, setInputs] = useState<Record<ProviderId, string>>({ openai: '', opencode: '' })
+  const [inputs, setInputs] = useState<Record<ProviderId, string>>(emptyInputs)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
   useEffect(() => {
     setLocalError(null)
-    setInputs({ openai: '', opencode: '' })
+    setInputs(emptyInputs())
   }, [idToken])
 
   async function handleSave(provider: ProviderId) {
@@ -69,7 +74,7 @@ export function SettingsPage(props: SettingsPageProps) {
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 }}>
           <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 16 }}>Credentials</h3>
           <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 12 }}>
-            Stored securely. Write-only: you can update or delete saved values.
+            Stored securely. Write-only: you can update or delete saved values. AWFL automatically selects the lowest estimated-cost compatible provider with a saved key.
           </div>
 
           {(error || localError) && (
@@ -163,7 +168,7 @@ export function SettingsPage(props: SettingsPageProps) {
           <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 16 }}>How to get an OpenCode API key</h3>
           <p style={{ margin: 0, fontSize: 14 }}>
             Sign in to the <a href="https://opencode.ai/console" target="_blank" rel="noreferrer">OpenCode Console</a>,
-            add credits, create an API key, and save it above. Choose an OpenCode model in the session model selector.
+            add credits, create an API key, and save it above. Choose a model in the session model selector; AWFL selects the provider automatically.
           </p>
         </section>
 
