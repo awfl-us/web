@@ -8,11 +8,14 @@ import { extractMarker, parseJsonLikeWithRemainder, splitAtFirstMarker } from '.
 import styles from './YojMessageList.module.css'
 import { MarkdownMessage } from './MarkdownMessage'
 import { CopyTextButton } from './CopyTextButton'
+import { indexActivity } from '../utils/activity'
+import { ToolCallActivity, ToolResultActivity } from './ActivityDetails'
 
 export type MessagePresentation = {
   messageStyle?: 'conversation' | 'legacy'
   showTimestamps?: boolean
   showCosts?: boolean
+  activityMode?: 'compact' | 'detailed'
 }
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
@@ -86,6 +89,8 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
   const modern = presentation?.messageStyle === 'conversation'
   const showTimestamps = presentation?.showTimestamps !== false
   const showCosts = presentation?.showCosts !== false
+  const compactActivity = modern && presentation?.activityMode !== 'detailed'
+  const activity = useMemo(() => compactActivity ? indexActivity(messages) : null, [messages, compactActivity])
   const [expandedByKey, setExpandedByKey] = useState<Record<string, boolean>>({})
 
   const { laneByIndex, lanesByIndex } = useMemo(() => computeLaneTimeline(messages), [messages])
@@ -238,6 +243,25 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         const technical = role === 'system' || (modern && role !== 'user' && role !== 'assistant')
         const bubbleVariant = role === 'user' ? styles.bubbleUser : technical ? styles.bubbleSystem : styles.bubbleAssistant
         const labelVariant = role === 'user' ? styles.labelUser : technical ? styles.labelSystem : styles.labelAssistant
+
+        const calls = activity?.calls.get(idx)
+        const result = activity?.results.get(idx)
+        // Activity rows stay at their original timeline position, including results
+        // from interleaved execution branches. The detailed view is unchanged.
+        if (result || calls?.length) {
+          return <div key={key} className={styles.row}>
+            {!hideExecGutter ? <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn}/> : null}
+            <div className={styles.contentFlex}>
+              {content && !result && <div className={cx(styles.bubble, bubbleVariant)}>
+                <div className={cx(styles.label, labelVariant)}>{role === 'assistant' ? assistantLabel : String(role).toUpperCase()}</div>
+                {renderNestedBranch({text:content, sessionId, idToken, keyBase:key + ':content', rich:role === 'assistant', expandedByKey, onExpandedChange})}
+              </div>}
+              {calls?.length ? <ToolCallActivity calls={calls} message={m}/> : null}
+              {result && <ToolResultActivity result={result} message={m}/>}
+              {metaText && <div className={styles.meta}>{metaText}</div>}
+            </div>
+          </div>
+        }
 
         // Ordinary assistant text (including live deltas) follows one rendering path.
         // Do not collapse long responses on persistence or remount the Markdown renderer.

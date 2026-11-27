@@ -8,7 +8,7 @@ describe('appearance preferences', () => {
   })
   it('accepts known choices and bounds geometry', () => {
     expect(normalizeAppearance({version: 1, theme: 'dark', density: 'compact', navigation: 'right', navigationWidth: 999, conversationMaxWidth: 1})).toEqual({
-      version: 1, theme: 'dark', density: 'compact', navigation: 'right', navigationWidth: 400, conversationMaxWidth: 480, messageStyle: 'conversation', showTimestamps: true, showCosts: true,
+      version: 1, theme: 'dark', density: 'compact', navigation: 'right', navigationWidth: 400, conversationMaxWidth: 480, messageStyle: 'conversation', showTimestamps: true, showCosts: true, activityMode: 'compact',
     })
   })
 })

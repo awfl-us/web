@@ -55,6 +55,7 @@ export function Playground() {
       <button onClick={()=>setAppearance({...appearance,navigation:appearance.navigation==='left'?'right':'left',navigationWidth:260,conversationMaxWidth:600})}>Switch layout</button>
       <button onClick={()=>setAppearance({...appearance,messageStyle:appearance.messageStyle==='legacy'?'conversation':'legacy'})}>Toggle message style</button>
       <button onClick={()=>setAppearance({...appearance,showCosts:!appearance.showCosts,showTimestamps:!appearance.showTimestamps})}>Toggle metadata</button>
+      <button onClick={()=>setAppearance({...appearance,activityMode:appearance.activityMode==='detailed'?'compact':'detailed'})}>Toggle activity</button>
       <button onClick={()=>setAppearance(defaultAppearance)}>Reset appearance</button>
       <button onClick={()=>setScope(s=>s==='a'?'b':'a')}>Switch session</button>
       <button onClick={()=>setFail(f=>!f)}>Toggle failure</button>
@@ -67,7 +68,7 @@ export function Playground() {
         navigation={<div>Nav</div>} navigationContent={<div>Sessions and files</div>}
         conversation={<SessionDetail messagePresentation={appearance} title="Deployment investigation" activeStatus={null}
           counts={{queued:2,inProgress:1,done:4,stuck:0}} running={running}
-          messages={[{role:'user',content:'Investigate deployment',docId:'u'},{role:'assistant',content:richFixture,docId:'a',cost:0.05,create_time:1700000000},{role:'tool',content:'**Raw tool output**',docId:'t'}, {role:'system',type:'collapsed_group',name:'Context maintenance',description:'Existing group fixture',content:'Nested technical **text**',docId:'group'}]}
+          messages={[{role:'user',content:'Investigate deployment',docId:'u'},{role:'assistant',content:richFixture,docId:'a',cost:0.05,create_time:1700000000},{role:'assistant',content:'Checking the files',docId:'calls',execId:'parent',tool_calls:[{id:'call-a',function:{name:'READ_FILE',arguments:'{"filepath":"src/example.ts"}'}},{id:'call-b',function:{name:'RUN_COMMAND',arguments:'{"command":"npm test"}'}}]}, {role:'tool',tool_call_id:'call-b',content:'**Raw tool output**',docId:'t',execId:'child-b'}, {role:'assistant',content:'Another branch',docId:'branch',execId:'other'}, {role:'tool',tool_call_id:'call-a',content:'file contents',docId:'read-result',execId:'child-a'}, {role:'tool',tool_call_id:'unmatched',content:'unmatched output',docId:'unmatched'}, {role:'system',type:'collapsed_group',name:'Context maintenance',description:'Existing group fixture',content:'Nested technical **text**',docId:'group'}]}
           loadingTasks={false} onEditTask={()=>{}} onDeleteTask={()=>{}} onAddTask={()=>{}} onEditAgent={()=>{}}
           containerRef={scroll} draftScope={'fixture:'+scope} sessionId={scope}
           wfRunning={running} wfStatus={running?'Running':'Idle'} onStop={()=>setRunning(false)}

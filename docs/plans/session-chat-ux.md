@@ -1,6 +1,6 @@
 # Session chat UX redesign
 
-Status: in progress (2026-11-27). Baseline: `0433845`; plan: `4e59cf8`. Phase 1 checkpoint `710f6e0` deployed with `226ac17`; Phase 2 rich conversation checkpoint implemented.
+Status: in progress (2026-11-27). Baseline: `0433845`; plan: `4e59cf8`. Phase 1 checkpoint `710f6e0` deployed with `226ac17`; Phase 2 checkpoint `fcc4341` deployed; Phase 3 compact activity checkpoint implemented.
 
 ## Goal and evidence
 
@@ -57,7 +57,7 @@ Each phase starts by investigating existing architecture, data contracts, public
 - [ ] Configurable narrow/right-aligned user bubbles, open assistant typography, legacy/compact modes, optional timestamps/cost, copy actions. Test hostile Markdown, huge outputs, code overflow, nested markers, streaming, scroll, copy and theme overrides.
 
 ### 3 — Compact activity and execution inspection
-- [ ] Audit execution IDs, tool/result correlation and marker groups; identify actual durations/statuses/file changes; never invent success or progress.
+- [x] Audit execution IDs, tool/result correlation and marker groups; identify actual durations/statuses/file changes; never invent success or progress.
 - [ ] Pure presentation mapper for human-readable labels, grouped activity, expandable arguments/results, errors and file changes where supported. Group by actual run/call correlation; preserve concurrent/nested lanes, raw messages, summaries and existing group expansion; unmatched events accessible.
 - [ ] Compact vs detailed/raw views, mobile inspection, active operations and failures visible; full available output accessible on demand. Test interleaved runs, missing metadata, errors and nested summaries.
 
@@ -114,3 +114,13 @@ Each phase starts by investigating existing architecture, data contracts, public
 - Typecheck and 26 unit tests passed. Browser suite at 320/390/768/1440px passed headings/tables/links, highlighted and unknown-language code, copy code/source, HTML/image suppression, unsafe link, literal tool output, group expand/collapse, legacy mode, metadata and previous composer/draft/layout checks. Existing SSE browser suite passed with heading delta, reader-position retention, stable Markdown DOM root across persistence, no duplicate, scope switch and disabled transport; first visible text 29ms locally (not production latency).
 - Production build and library bundle passed; app JavaScript 365.53 kB gzip (prior checkpoint 258.27 kB; includes subsequent OpenCode changes). Markdown/highlighting adds significant weight; consider code splitting or a narrower language set in polish. Existing Rollup circular dependency and bundle-size warnings remain.
 - Next: finish remaining Phase 2 stress/accessibility coverage (large code, nested/interleaved fixtures and mobile device) then Phase 3 tool-call/result correlation audit, compact operations with expandable raw details. Do not infer success/duration from missing metadata. Full theme migration and inspector remain later phases.
+
+
+## 2026-11-27 — Phase 3 compact activity checkpoint
+
+- Phase 2 deployment verified: [run 46027238058](https://github.com/awfl-us/web/actions/runs/46027238058) succeeded; production serves the matching `index-CFLncta2.js` and `index-BNS4p-KN.css`. Authenticated production UI inspection remains open.
+- Audited the current Scala `workflow-utils` ChatMessage/ToolCall schema and `workflows` Convo/ToolDispatcher/ToolWorkflow sources. Calls are persisted on assistant messages, with provider call ID; result messages carry `tool_call_id` and encoded content, potentially from child executions. Dispatcher deliberately skips typed output functions without executable registrations, so no result does not imply running or failure. No uniform success, duration, diff, or live execution signal is present in this message contract. Do not infer these from raw text; retain the existing workflow error banners.
+- Pure `indexActivity` correlates unique explicit IDs in the loaded window only, requiring the result to follow its request. Duplicate, null, missing or reversed IDs remain unmatched; no adjacency guessing and no requirement for equal execution IDs across parent/child workflows. Requests from one message are grouped; results stay in their actual timeline positions to preserve interleaved executions and lane mapping. Root/standalone marker cards retain existing behavior. No backend changes or new dependencies.
+- Conversation style defaults to compact activity. Collapsed rows show readable tool names or call count and recorded-result count, not success. Individual arguments, literal output and the original message are expandable and copyable. Long raw output scrolls within its inspection panel. A detailed activity mode restores the previous inline tool presentation independently of the message style. Existing legacy mode remains supported. Tool result rows without correlation are still inspectable. CSS tokens control the surface, spacing, radius, typography and output height; expandable row controls emit the existing user-content-expand signal.
+- Validation: TypeScript and 29 unit tests passed (3 new mapping tests covering interleaving, child exec IDs, missing/ambiguous IDs, multiple calls and marker preservation). Chromium fixture passed 320/390/768/1440px, multiple calls and interleaved result ordering, raw output expansion, unmatched results, detailed/compact switching and previous Markdown/composer/theme regression checks. One test selector was adjusted to scope response-copy to the intended message after adding another assistant response.
+- Remaining Phase 3 work: verify richer structured result/error metadata with backend where appropriate; no generic success/failure or active-operation display invented. More nested/concurrent group stress testing and accessibility on physical mobile devices remain. Next major milestone is Phase 4 inspector and user-facing appearance settings. Keep the existing timeline mounted while inspecting tasks/files and separate visual preferences from data fetching.
