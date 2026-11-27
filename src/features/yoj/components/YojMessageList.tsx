@@ -6,6 +6,14 @@ import { ExecGutter } from '../../exec/public'
 import { computeLaneTimeline, computeExecBranchAdjacency, formatUsd, getMessageKey, getExecId } from '../utils/yojUtils'
 import { extractMarker, parseJsonLikeWithRemainder, splitAtFirstMarker } from '../utils/markers'
 import styles from './YojMessageList.module.css'
+import { MarkdownMessage } from './MarkdownMessage'
+import { CopyTextButton } from './CopyTextButton'
+
+export type MessagePresentation = {
+  messageStyle?: 'conversation' | 'legacy'
+  showTimestamps?: boolean
+  showCosts?: boolean
+}
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
@@ -15,14 +23,16 @@ function renderNestedBranch(args: {
   idToken?: string
   keyBase: string
   depth?: number
+  rich?: boolean
   expandedByKey: Record<string, boolean>
   onExpandedChange: (key: string, expanded: boolean) => void
 }): React.ReactNode {
-  const { text, sessionId, idToken, keyBase, depth = 0, expandedByKey, onExpandedChange } = args
+  const { text, sessionId, idToken, keyBase, depth = 0, rich = false, expandedByKey, onExpandedChange } = args
   if (!text || text.trim().length === 0) return null
 
   const split = splitAtFirstMarker(text)
   if (!split) {
+    if (rich) return <MarkdownMessage text={text} />
     return (
       <pre key={`${keyBase}:text:${depth}`} className={styles.preText}>
         {text}
@@ -30,7 +40,7 @@ function renderNestedBranch(args: {
     )
   }
 
-  const beforeNode = split.before && split.before.trim().length > 0 ? (
+  const beforeNode = split.before && split.before.trim().length > 0 ? rich ? <MarkdownMessage text={split.before} /> : (
     <pre key={`${keyBase}:before:${depth}`} className={styles.preText}>
       {split.before}
     </pre>
@@ -71,8 +81,11 @@ function renderNestedBranch(args: {
   )
 }
 
-export function YojMessageList(props: { messages: YojMessage[]; sessionId?: string; idToken?: string; assistantName?: string; hideExecGutter?: boolean }) {
-  const { messages, sessionId, idToken, assistantName, hideExecGutter } = props
+export function YojMessageList(props: { messages: YojMessage[]; sessionId?: string; idToken?: string; assistantName?: string; hideExecGutter?: boolean; presentation?: MessagePresentation }) {
+  const { messages, sessionId, idToken, assistantName, hideExecGutter, presentation } = props
+  const modern = presentation?.messageStyle === 'conversation'
+  const showTimestamps = presentation?.showTimestamps !== false
+  const showCosts = presentation?.showCosts !== false
   const [expandedByKey, setExpandedByKey] = useState<Record<string, boolean>>({})
 
   const { laneByIndex, lanesByIndex } = useMemo(() => computeLaneTimeline(messages), [messages])
@@ -101,9 +114,9 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
   }, [messages])
 
   return (
-    <div className={styles.yojList}>
+    <div className={cx(styles.yojList, modern && styles.conversation)} data-awfl-message-style={modern ? 'conversation' : 'legacy'}>
       {messages.map((m, idx) => {
-        if (m.liveResponse === true) {
+        if (m.liveResponse === true && !modern) {
           const key = getMessageKey(m, idx)
           return <div key={key} className={styles.row} data-live-response={m.responseId}>
             <div className={cx(styles.bubble, styles.bubbleAssistant)}>
@@ -113,9 +126,10 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
           </div>
         }
         const execId = getExecId(m as any)
-        const rootMarker = extractMarker(m as any)
-        const { parsed: parsedContent } = parseJsonLikeWithRemainder((m as any)?.content)
-        const contentMarker = extractMarker(parsedContent)
+        const rootMarker = m.liveResponse ? null : extractMarker(m)
+        const { parsed: parsedContent, remainder } = m.liveResponse ? { parsed: null, remainder: null } : parseJsonLikeWithRemainder(m.content)
+        // Embedded markers with surrounding prose are handled by the nested renderer, preserving the prose.
+        const contentMarker = !remainder ? extractMarker(parsedContent) : null
         const marker = rootMarker || contentMarker
         const lane = laneByIndex[idx]
         const lanes = execId ? lanesByIndex[idx] : 0
@@ -216,19 +230,39 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         const costNum = typeof rawCost === 'string' ? parseFloat(rawCost) : rawCost
         const costString = formatUsd(costNum)
         const metaParts: string[] = []
-        if (tsString) metaParts.push(tsString)
-        if (costString) metaParts.push(costString)
+        if (tsString && showTimestamps) metaParts.push(tsString)
+        if (costString && showCosts) metaParts.push(costString)
         const metaText = metaParts.join(' · ')
 
         const assistantLabel = assistantName?.trim().length ? assistantName : 'Assistant'
-        const bubbleVariant = role === 'user' ? styles.bubbleUser : role === 'system' ? styles.bubbleSystem : styles.bubbleAssistant
-        const labelVariant = role === 'user' ? styles.labelUser : role === 'system' ? styles.labelSystem : styles.labelAssistant
+        const technical = role === 'system' || (modern && role !== 'user' && role !== 'assistant')
+        const bubbleVariant = role === 'user' ? styles.bubbleUser : technical ? styles.bubbleSystem : styles.bubbleAssistant
+        const labelVariant = role === 'user' ? styles.labelUser : technical ? styles.labelSystem : styles.labelAssistant
+
+        // Ordinary assistant text (including live deltas) follows one rendering path.
+        // Do not collapse long responses on persistence or remount the Markdown renderer.
+        if (modern && role === 'assistant' && content && !toolCalls?.length &&
+          (m.liveResponse || !splitAtFirstMarker(content))) {
+          return (
+            <div key={key} className={styles.row} data-live-response={m.liveResponse ? m.responseId : undefined}>
+              {!hideExecGutter ? <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} /> : null}
+              <div className={cx(styles.bubble, styles.bubbleAssistant)}>
+                <div className={cx(styles.label, styles.labelAssistant)}>{assistantLabel}</div>
+                <MarkdownMessage text={content} />
+                {!m.liveResponse && <div className={styles.messageFooter}>
+                  <CopyTextButton label="Copy response" getText={() => content}/>
+                  {metaText && <div className={styles.meta}>{metaText}</div>}
+                </div>}
+              </div>
+            </div>
+          )
+        }
 
         return (
           <div key={key} className={styles.row}>
             {!hideExecGutter ? <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} /> : null}
             <div className={cx(styles.bubble, bubbleVariant)}>
-              <div className={cx(styles.label, labelVariant)}>{role === 'assistant' ? assistantLabel : String(role).toUpperCase()}</div>
+              <div className={cx(styles.label, labelVariant)}>{role === 'assistant' ? assistantLabel : modern && role === 'user' ? 'You' : String(role).toUpperCase()}</div>
 
               <Collapsible expanded={messageExpanded} onExpandedChange={(expanded) => onExpandedChange(messageExpandedKey, expanded)}>
                 <div className={styles.contentStack}>
@@ -239,6 +273,7 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
                         sessionId,
                         idToken,
                         keyBase: `${key}:content`,
+                        rich: modern && role === 'assistant',
                         expandedByKey,
                         onExpandedChange,
                       })}

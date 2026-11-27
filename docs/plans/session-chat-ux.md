@@ -1,6 +1,6 @@
 # Session chat UX redesign
 
-Status: in progress (2026-11-27). Baseline: `0433845`; plan: `4e59cf8`. Phase 0 audited the implementation path; first Phase 1 checkpoint implemented.
+Status: in progress (2026-11-27). Baseline: `0433845`; plan: `4e59cf8`. Phase 1 checkpoint `710f6e0` deployed with `226ac17`; Phase 2 rich conversation checkpoint implemented.
 
 ## Goal and evidence
 
@@ -52,8 +52,8 @@ Each phase starts by investigating existing architecture, data contracts, public
 - [ ] Test 320/390/768/1440px with long model names and running/submitting state: no clipped input/overflow, controls reachable, drafts retained, stop/queue unchanged. Verify alternative theme/layout without execution changes.
 
 ### 2 — Rich conversation rendering
-- [ ] Audit live/persisted Yoj shapes, marker parsing and library consumers; distinguish user/assistant text from tool/system/context groups and preserve identities/order.
-- [ ] Safe streaming Markdown: headings, tables, lists, links, copyable highlighted code. No raw HTML or unsafe URLs. Tool output stays text; preserve nested markers/whitespace; handle partial fences and stable live-to-persisted replacement.
+- [x] Audit live/persisted Yoj shapes, marker parsing and library consumers; distinguish user/assistant text from tool/system/context groups and preserve identities/order.
+- [x] Safe streaming Markdown: headings, tables, lists, links, copyable highlighted code. No raw HTML or unsafe URLs. Tool output stays text; preserve nested markers/whitespace; handle partial fences and stable live-to-persisted replacement.
 - [ ] Configurable narrow/right-aligned user bubbles, open assistant typography, legacy/compact modes, optional timestamps/cost, copy actions. Test hostile Markdown, huge outputs, code overflow, nested markers, streaming, scroll, copy and theme overrides.
 
 ### 3 — Compact activity and execution inspection
@@ -93,7 +93,7 @@ Each phase starts by investigating existing architecture, data contracts, public
 
 - Starting layout is a configurable three-panel desktop and single-pane mobile; neutral visual style is provisional. Prefer typed config, scoped CSS and local appearance persistence rather than server-managed themes or unrestricted page builder. Revisit if cross-device sync requested.
 - Backend support for queue cancellation, precise spend, diffs, status and session mutations must be verified before exposing controls. No backend changes in this planning commit.
-- Authenticated production inspection remains pending. All implementation phases pending; next Phase 0, then foundation/composer.
+- Authenticated production inspection remains pending. See phase checkpoints below for current implementation status.
 
 
 ## 2026-11-27 — Phase 0 / Phase 1 checkpoint
@@ -103,3 +103,14 @@ Each phase starts by investigating existing architecture, data contracts, public
 - The composer is now a full-width growing textarea above a wrapping control bar; model/budget/upload/send/stop/status are available, existing submission/stop callback contracts preserved, and Enter vs Shift+Enter and IME handled. Scoped, revisioned drafts survive tab reload and session changes using sessionStorage (not server or durable localStorage); acknowledgement clears only the submitted revision. Draft retention is the browser tab lifetime; failed drafts remain. Existing upload modal retained. Drag/drop, paste, actual on-device keyboard testing, additional focus/screen-reader work and concurrent submission edge cases remain to be validated.
 - Baseline: TypeScript and 24 unit tests passed. New tests: 26 unit tests passed; Chromium composer fixture measured input width 282/352/367/878px at 320/390/768/1440px, with long model names and running workflow controls. Verified multiline submission, budget/model value, errors, failure retention, switching sessions, preserving a new draft during acknowledgement, theme/layout changes, reload/reset and Stop. First run found a too-short model selector target at 320px; fixed and passed. Existing streaming fixture passed (first visible text 109ms in the local run, not a production latency metric). Lint reported no errors and 27 warnings (one new fixture fast-refresh warning, corrected by exporting the component). Library and declaration builds passed; extracted CSS includes the new tokens.
 - Added `scripts/session-ux-browser.html` as a local fixture/playground and `scripts/test-session-ux-browser.mjs` to deploy CI alongside the existing streaming check. The initial presets affect only migrated controls, not all legacy panels. The current browser tests use synthetic messages and mocked callbacks, not authenticated production or an actual mobile keyboard. Broad concurrent/nested/task/file fixture coverage remains open. Phase 1 is partially complete; next finish validation and expand rich message rendering/theme migration in Phase 2. See the customization guide for current override points.
+
+
+## 2026-11-27 — Phase 2 rich conversation checkpoint
+
+- Verified Phase 1 is deployed: its own deploy run was superseded/cancelled, but the descendant `226ac17` deployment succeeded ([run 46011654292](https://github.com/awfl-us/web/actions/runs/46011654292)); public production serves `index-CUTjwIHS.css` from the previous verified build. Preserved subsequent OpenCode provider work by basing on that commit. Authenticated production session and actual device keyboard validation remain outstanding.
+- Investigated Yoj rendering: `getMessageKey` uses responseId for assistant messages; live and persisted paths previously diverged and persisted responses could collapse at 320px. Normal assistant text now uses the same Markdown component for live and persisted content, preserving DOM identity and displaying long replies without automatic clipping. Technical messages keep literal text and existing group/lane behavior. Explicit/embedded marker handling remains for compatibility; surrounding prose for embedded markers is retained. The existing ambiguous marker-like JSON example format remains a limitation until a structured event contract is defined.
+- Chose pinned `react-markdown`, `remark-gfm`, `rehype-highlight` for CommonMark/GFM and syntax highlighting with no HTML injection. No raw HTML execution; URL transform accepts http/https/mailto and safe relative URLs, unsupported links become text, remote images become alt text rather than fetching, unknown languages stay plain. Copy response copies Markdown source; copy code copies text. No backend changes.
+- Conversation presentation defaults to narrow right-aligned user bubbles, open assistant text, technical cards, optional cost/timestamp metadata, readable shared content width and scoped theme tokens (including code palette). `messageStyle: 'legacy'` preserves preformatted/full-width rendering; direct public YojMessageList keeps legacy default unless opted in. Existing `--yoj-*` hooks take precedence. User-facing preferences editor remains planned; playground supports switching styles and metadata live.
+- Typecheck and 26 unit tests passed. Browser suite at 320/390/768/1440px passed headings/tables/links, highlighted and unknown-language code, copy code/source, HTML/image suppression, unsafe link, literal tool output, group expand/collapse, legacy mode, metadata and previous composer/draft/layout checks. Existing SSE browser suite passed with heading delta, reader-position retention, stable Markdown DOM root across persistence, no duplicate, scope switch and disabled transport; first visible text 29ms locally (not production latency).
+- Production build and library bundle passed; app JavaScript 365.53 kB gzip (prior checkpoint 258.27 kB; includes subsequent OpenCode changes). Markdown/highlighting adds significant weight; consider code splitting or a narrower language set in polish. Existing Rollup circular dependency and bundle-size warnings remain.
+- Next: finish remaining Phase 2 stress/accessibility coverage (large code, nested/interleaved fixtures and mobile device) then Phase 3 tool-call/result correlation audit, compact operations with expandable raw details. Do not infer success/duration from missing metadata. Full theme migration and inspector remain later phases.

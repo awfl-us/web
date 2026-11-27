@@ -117,7 +117,7 @@ ui
 yoj
 - Exports
   - Hooks: useTopicContextYoj
-  - Components: YojMessageList
+  - Components: YojMessageList (optional MessagePresentation; standalone legacy default)
   - Types: YojMessage
 - Used in
   - src/pages/Sessions.tsx: useTopicContextYoj

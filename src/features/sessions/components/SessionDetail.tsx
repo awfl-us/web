@@ -3,6 +3,7 @@ import { SessionHeader } from '../../../components/sessions/SessionHeader'
 import { SessionItemsView } from '../../../components/sessions/SessionItemsView'
 import { ErrorBanner } from '../../../components/common/ErrorBanner'
 import { PromptComposer } from './PromptComposer'
+import type { MessagePresentation } from '../../yoj/public'
 import type { TaskRecord } from '../../tasks/hooks/useTasksList'
 import type { TaskStatus } from '../../tasks/public'
 
@@ -20,6 +21,7 @@ export interface SessionDetailProps {
   // New: right-side extras area (e.g., Model selector)
   extrasRight?: React.ReactNode
   composerExtras?: React.ReactNode
+  messagePresentation?: MessagePresentation
 
   // Items (messages/tasks)
   execError?: string | null
@@ -95,6 +97,7 @@ export function SessionDetail(props: SessionDetailProps) {
     execStatusError,
     extrasRight,
     composerExtras,
+    messagePresentation,
   } = props
 
   // Rolling avg $/hr computed over the loaded messages window (SegKala: default 60m).
@@ -181,6 +184,7 @@ export function SessionDetail(props: SessionDetailProps) {
       ) : null}
 
       <SessionItemsView
+        messagePresentation={messagePresentation}
         activeTaskStatus={activeStatus}
         tasksError={tasksError}
         loadingTasks={loadingTasks}

@@ -349,6 +349,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
           <div style={{ color: '#6b7280', textAlign: 'left' }}>Select a session to view details.</div>
         ) : (
           <SessionDetail
+            messagePresentation={appearance}
             title={sel.title}
             updatedAt={sel.updatedAt}
             counts={taskCounts || undefined}

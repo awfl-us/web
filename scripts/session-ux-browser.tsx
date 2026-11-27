@@ -5,6 +5,34 @@ import '../src/App.css'
 import { SessionDetail, SessionWorkspaceLayout, ModelSelector } from '../src/features/sessions/public'
 import { useAppearance, defaultAppearance } from '../src/features/ui/public'
 
+
+const richFixture = [
+  '## Deployment results',
+  '',
+  '**All checks passed.** See [documentation](https://example.com/docs).',
+  '',
+  '- Build complete',
+  '- Tests passed',
+  '',
+  '| Check | Result |',
+  '| --- | --- |',
+  '| Unit tests | Passed |',
+  '',
+  '```javascript',
+  'const answer = 42;',
+  '```',
+  '',
+  '[unsafe link](javascript:alert%281%29)',
+  '',
+  '<img src="https://example.invalid/tracker" onerror="alert(1)">',
+  '',
+  '![remote image](https://example.invalid/tracker.png)',
+  '',
+  '```unknown-language',
+  'untouched code',
+  '```',
+].join('\n')
+
 export function Playground() {
   const { appearance, setAppearance } = useAppearance('fixture')
   const [scope, setScope] = useState('a')
@@ -25,6 +53,8 @@ export function Playground() {
     <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
       <button onClick={()=>setAppearance({...appearance, theme:appearance.theme==='dark'?'light':'dark',density:appearance.density==='compact'?'comfortable':'compact'})}>Toggle theme</button>
       <button onClick={()=>setAppearance({...appearance,navigation:appearance.navigation==='left'?'right':'left',navigationWidth:260,conversationMaxWidth:600})}>Switch layout</button>
+      <button onClick={()=>setAppearance({...appearance,messageStyle:appearance.messageStyle==='legacy'?'conversation':'legacy'})}>Toggle message style</button>
+      <button onClick={()=>setAppearance({...appearance,showCosts:!appearance.showCosts,showTimestamps:!appearance.showTimestamps})}>Toggle metadata</button>
       <button onClick={()=>setAppearance(defaultAppearance)}>Reset appearance</button>
       <button onClick={()=>setScope(s=>s==='a'?'b':'a')}>Switch session</button>
       <button onClick={()=>setFail(f=>!f)}>Toggle failure</button>
@@ -35,9 +65,9 @@ export function Playground() {
     <div style={{flex:1,minHeight:0}}>
       <SessionWorkspaceLayout appearance={appearance} mobile={mobile} pane={pane}
         navigation={<div>Nav</div>} navigationContent={<div>Sessions and files</div>}
-        conversation={<SessionDetail title="Deployment investigation" activeStatus={null}
+        conversation={<SessionDetail messagePresentation={appearance} title="Deployment investigation" activeStatus={null}
           counts={{queued:2,inProgress:1,done:4,stuck:0}} running={running}
-          messages={[{role:'user',content:'Investigate deployment',docId:'u'},{role:'assistant',content:'Checking build configuration',docId:'a'},{role:'tool',content:'Test suite passed',docId:'t'}]}
+          messages={[{role:'user',content:'Investigate deployment',docId:'u'},{role:'assistant',content:richFixture,docId:'a',cost:0.05,create_time:1700000000},{role:'tool',content:'**Raw tool output**',docId:'t'}, {role:'system',type:'collapsed_group',name:'Context maintenance',description:'Existing group fixture',content:'Nested technical **text**',docId:'group'}]}
           loadingTasks={false} onEditTask={()=>{}} onDeleteTask={()=>{}} onAddTask={()=>{}} onEditAgent={()=>{}}
           containerRef={scroll} draftScope={'fixture:'+scope} sessionId={scope}
           wfRunning={running} wfStatus={running?'Running':'Idle'} onStop={()=>setRunning(false)}

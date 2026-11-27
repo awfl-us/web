@@ -1,6 +1,6 @@
-# Session appearance customization (first checkpoint)
+# Session appearance customization
 
-The appearance layer is intentionally separate from workflow execution and session data. The first checkpoint covers the composer, model selector and workspace layout. Existing message, task, file and header styling has not yet been migrated. The inspector and full Appearance settings screen are planned, not available yet.
+The appearance layer is intentionally separate from workflow execution and session data. The first two checkpoints cover the composer, model selector, workspace layout and conversation timeline. Existing task, file and header styling has not yet been migrated. The inspector and full Appearance settings screen are planned, not available yet.
 
 ## Change the defaults
 
@@ -22,6 +22,12 @@ A host may supply scoped semantic/component CSS variables without modifying the 
   --awfl-composer-padding: 12px;
   --awfl-composer-radius: 20px;
   --awfl-workspace-padding: 12px;
+  --awfl-message-font-size: 16px;
+  --awfl-message-line-height: 1.7;
+  --awfl-user-message-max-width: 80%;
+  --awfl-message-radius: 14px;
+  --awfl-assistant-message-surface: transparent;
+  --awfl-code-string: #166534;
 }
 ```
 
@@ -37,14 +43,17 @@ const appearance = {
   conversationMaxWidth: 720,
   density: 'compact' as const,
   theme: 'light' as const,
+  messageStyle: 'conversation' as const,
+  showTimestamps: true,
+  showCosts: true,
 }
 ```
 
-Pass this as the `appearance` prop of `SessionWorkspaceLayout`. The max width currently constrains the composer; future timeline migration will share it. Widths are normalized to bounded ranges. The SPA reads the versioned account-specific appearance preferences via `useAppearance`; the current production UI does not expose an editor. No appearance configuration changes workflow requests.
+Pass this as the `appearance` prop of `SessionWorkspaceLayout` and the `messagePresentation` prop of `SessionDetail`. The max width constrains the composer and conversational timeline. Set `messageStyle: 'legacy'` for the previous full-width, literal text rendering. Direct `YojMessageList` consumers default to legacy unless they pass `presentation={{messageStyle: 'conversation'}}`. Existing `--yoj-*` variables override new conversation defaults. Cost and time toggles only affect message metadata, not accounting or the session header. Widths are normalized to bounded ranges. The SPA reads the versioned account-specific appearance preferences via `useAppearance`; the current production UI does not expose an editor. No appearance configuration changes workflow requests.
 
 ## Preview without running an agent
 
-Run `npm run dev`, then open `http://localhost:5173/scripts/session-ux-browser.html`. This dev-only synthetic fixture mounts the actual session components and supports changing theme, layout and session, toggling failures/running state, and resetting appearance. Try resizing the browser and edit the CSS files with Vite hot reload. No real execution or authentication bypass is involved. The production build does not bundle the fixture as an entry.
+Run `npm run dev`, then open `http://localhost:5173/scripts/session-ux-browser.html`. This dev-only synthetic fixture mounts the actual session components and supports changing theme, layout, message style, metadata and session, toggling failures/running state, and resetting appearance. Try resizing the browser and edit the CSS files with Vite hot reload. No real execution or authentication bypass is involved. The production build does not bundle the fixture as an entry.
 
 The automated browser check is `node scripts/test-session-ux-browser.mjs` (install Playwright/Chromium as in deploy CI; optionally set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` for an existing Chromium binary).
 

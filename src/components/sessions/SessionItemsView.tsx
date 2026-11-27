@@ -1,6 +1,7 @@
 import { useEffect, useRef, type Ref } from 'react'
 import { TasksList } from '../../features/tasks/components/TasksList'
 import { YojMessageList } from './YojMessageList'
+import type { MessagePresentation } from '../../features/yoj/public'
 import { ErrorBanner } from '../common/ErrorBanner'
 import type { TaskRecord } from '../../features/tasks/hooks/useTasksList'
 import type { TaskStatus } from '../../features/tasks/types/tasks'
@@ -19,6 +20,7 @@ interface SessionItemsViewProps {
   execError?: string | null
   assistantName?: string
   hideExecGutter?: boolean
+  messagePresentation?: MessagePresentation
   // Refs for scroll/anchor management
   containerRef: Ref<HTMLDivElement | null>
   bottomRef?: Ref<HTMLDivElement | null>
@@ -40,12 +42,14 @@ export function SessionItemsView({
   execError,
   assistantName,
   hideExecGutter,
+  messagePresentation = { messageStyle: 'conversation' },
   containerRef,
   bottomRef,
   topRef,
   sessionId,
   idToken,
 }: SessionItemsViewProps) {
+  const modern = !activeTaskStatus && messagePresentation.messageStyle !== 'legacy'
   const hasTasks = (sessionTasks?.length || 0) > 0
 
   // Show the loading indicator only once per status selection when there are no tasks yet.
@@ -70,7 +74,9 @@ export function SessionItemsView({
         overflowX: 'hidden',
         overscrollBehavior: 'contain',
         WebkitOverflowScrolling: 'touch',
-        border: '1px solid #e5e7eb',
+        border: modern ? '1px solid var(--awfl-border, var(--awfl-border-default, #cbd5e1))' : '1px solid #e5e7eb',
+        background: modern ? 'var(--awfl-surface, var(--awfl-surface-default, white))' : undefined,
+        color: modern ? 'var(--awfl-text, var(--awfl-text-default, #17232d))' : undefined,
         borderRadius: 8,
         padding: 0,
         display: 'flex',
@@ -93,12 +99,12 @@ export function SessionItemsView({
           wordBreak: 'break-word',
           whiteSpace: 'pre-wrap',
           width: '100%',
-          maxWidth: '100%',
+          maxWidth: modern ? 'var(--awfl-conversation-max-width, 100%)' : '100%',
           hyphens: 'auto',
           padding: 12,
           display: 'block',
           margin: 0,
-          alignSelf: 'stretch',
+          alignSelf: modern ? 'center' : 'stretch',
         }}
       >
         {/* Top sentinel for IO-less top stick detection */}
@@ -151,6 +157,7 @@ export function SessionItemsView({
           <div style={{ color: '#6b7280', textAlign: 'left' }}>No messages returned.</div>
         ) : (
           <YojMessageList
+            presentation={{ messageStyle: 'conversation', ...messagePresentation }}
             messages={messages as any}
             sessionId={sessionId || undefined}
             idToken={idToken || undefined}

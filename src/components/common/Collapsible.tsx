@@ -88,7 +88,7 @@ export function Collapsible(props: CollapsibleProps) {
               left: 0,
               right: 0,
               height: 64,
-              background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 60%)',
+              background: 'linear-gradient(180deg, transparent 0%, var(--awfl-collapse-fade, #fff) 60%)',
               pointerEvents: 'none',
             }}
           />

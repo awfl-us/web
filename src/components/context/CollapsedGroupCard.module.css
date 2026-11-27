@@ -113,3 +113,18 @@ Set these variables on a container that wraps CollapsedGroupCard to theme:
   padding: 6px 8px;
   font-size: 12px;
 }
+:global([data-awfl-message-style="conversation"]) .root {
+  color: var(--awfl-text, var(--awfl-text-default, #17232d));
+  background: var(--yoj-cg-bg, var(--awfl-muted, var(--awfl-muted-default, #f5f6f8)));
+  border-color: var(--yoj-cg-border, var(--awfl-border, var(--awfl-border-default, #cbd5e1)));
+}
+:global([data-awfl-message-style="conversation"]) .label {
+  color: var(--yoj-cg-label-color, var(--awfl-text, var(--awfl-text-default, #17232d)));
+}
+:global([data-awfl-message-style="conversation"]) .description {
+  color: var(--yoj-cg-desc-color, var(--awfl-secondary, var(--awfl-secondary-default, #475569)));
+}
+:global([data-awfl-message-style="conversation"]) .body {
+  background: var(--yoj-cg-body-bg, var(--awfl-surface, var(--awfl-surface-default, white)));
+  border-color: var(--yoj-cg-body-border, var(--awfl-border, var(--awfl-border-default, #cbd5e1)));
+}

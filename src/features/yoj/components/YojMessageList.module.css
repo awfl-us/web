@@ -136,3 +136,48 @@
   font-size: 11px;
   color: var(--yoj-meta, #9ca3af);
 }
+
+.conversation {
+  gap: var(--awfl-message-gap, calc(3 * var(--awfl-gap, var(--awfl-gap-default, 8px))));
+  font-family: var(--awfl-font, var(--awfl-font-default, system-ui, sans-serif));
+  font-size: var(--awfl-message-font-size, 15px);
+  line-height: var(--awfl-message-line-height, 1.65);
+}
+.conversation .row { gap: var(--awfl-message-row-gap, 8px); align-items: flex-start; }
+.conversation .bubble {
+  flex: 1 1 0;
+  color: var(--awfl-text, var(--awfl-text-default, #17232d));
+  padding: var(--awfl-message-padding, 12px);
+  border-radius: var(--awfl-message-radius, var(--awfl-radius, var(--awfl-radius-default, 12px)));
+}
+.conversation .bubbleUser {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: var(--awfl-user-message-max-width, 85%);
+  margin-inline-start: auto;
+  background: var(--yoj-user-bg, var(--awfl-user-message-surface, var(--awfl-muted, var(--awfl-muted-default, #f5f6f8))));
+  border-color: var(--yoj-user-border, var(--awfl-user-message-border, transparent));
+}
+.conversation .bubbleAssistant {
+  background: var(--yoj-assistant-bg, var(--awfl-assistant-message-surface, transparent));
+  border-color: var(--yoj-assistant-border, var(--awfl-assistant-message-border, transparent));
+}
+.conversation .bubbleSystem {
+  background: var(--yoj-system-bg, var(--awfl-muted, var(--awfl-muted-default, #f5f6f8)));
+  border-color: var(--yoj-system-border, var(--awfl-border, var(--awfl-border-default, #cbd5e1)));
+  font-size: .9em;
+}
+.conversation .labelUser { color: var(--yoj-user-label, var(--awfl-secondary, var(--awfl-secondary-default, #475569))); }
+.conversation .labelAssistant { color: var(--yoj-assistant-label, var(--awfl-text, var(--awfl-text-default, #17232d))); }
+.conversation .labelSystem { color: var(--yoj-system-label, var(--awfl-secondary, var(--awfl-secondary-default, #475569))); }
+.conversation .toolCallsBox, .conversation .toolCallPre {
+  background: var(--yoj-toolcalls-bg, var(--awfl-muted, var(--awfl-muted-default, #f5f6f8)));
+  border-color: var(--yoj-toolcalls-border, var(--awfl-border, var(--awfl-border-default, #cbd5e1)));
+}
+.conversation .toolCallsTitle, .conversation .toolCallName { color: var(--awfl-text, var(--awfl-text-default, #17232d)); }
+.conversation .toolCallPre { font-family: var(--awfl-code-font, ui-monospace, monospace); }
+.conversation .meta { color: var(--yoj-meta, var(--awfl-secondary, var(--awfl-secondary-default, #475569))); }
+.messageFooter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.messageFooter .meta { margin-top: 0; }
+.conversation { --awfl-collapse-fade: var(--awfl-surface, var(--awfl-surface-default, #fff)); }
+.conversation .bubbleUser, .conversation .bubbleSystem { --awfl-collapse-fade: var(--awfl-muted, var(--awfl-muted-default, #f5f6f8)); }

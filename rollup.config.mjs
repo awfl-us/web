@@ -26,7 +26,7 @@ const input = await fg([
   '!src/features/sessions/components/SessionSidebar.ts',
 ])
 
-const externalPkgs = ['react', 'react-dom', 'firebase']
+const externalPkgs = ['react', 'react-dom', 'firebase', 'react-markdown', 'remark-gfm', 'rehype-highlight']
 const external = (id) => externalPkgs.some((pkg) => id === pkg || id.startsWith(pkg + '/')) || id === 'react/jsx-runtime'
 
 export default {

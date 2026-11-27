@@ -13,6 +13,10 @@
   --awfl-secondary-default: #475569;
   --awfl-border-default: var(--awfl-palette-line);
   --awfl-accent-default: var(--awfl-palette-slate);
+  --awfl-link-default: #1d4ed8;
+  --awfl-code-keyword-default: #7c3aed;
+  --awfl-code-string-default: #166534;
+  --awfl-code-value-default: #1d4ed8;
   --awfl-on-accent-default: #ffffff;
   --awfl-error-default: #b91c1c;
   --awfl-focus-default: #2563eb;
@@ -28,6 +32,10 @@
   --awfl-secondary-default: #c3ceda;
   --awfl-border-default: #526174;
   --awfl-accent-default: #a8c9f6;
+  --awfl-link-default: #a8c9f6;
+  --awfl-code-keyword-default: #c4b5fd;
+  --awfl-code-string-default: #86efac;
+  --awfl-code-value-default: #93c5fd;
   --awfl-on-accent-default: #17232d;
   --awfl-error-default: #fca5a5;
   --awfl-focus-default: #93c5fd;
@@ -44,6 +52,10 @@
     --awfl-secondary-default: #c3ceda;
     --awfl-border-default: #526174;
     --awfl-accent-default: #a8c9f6;
+  --awfl-link-default: #a8c9f6;
+  --awfl-code-keyword-default: #c4b5fd;
+  --awfl-code-string-default: #86efac;
+  --awfl-code-value-default: #93c5fd;
     --awfl-on-accent-default: #17232d;
     --awfl-error-default: #fca5a5;
     --awfl-focus-default: #93c5fd;
