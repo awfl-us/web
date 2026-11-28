@@ -8,6 +8,9 @@ export function makeApiClient(opts: ApiClientOptions) {
       // Endpoint for listing sessions within a time range
       return await postJson('/workflows/context/sessions/list', body, opts, ropts)
     },
+    async sessionTimeline(body: {sessionId:string;limit?:number;before?:string;after?:string}, ropts?: RequestOptions) {
+      return await postJson('/workflows/context/sessions/timeline', body, opts, ropts)
+    },
     async topicContextYoj(body: any, ropts?: RequestOptions) {
       // Endpoint for running TopicContextYoj
       const json = await postJson('/workflows/context/topicContextYoj/run', body, opts, ropts)

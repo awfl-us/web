@@ -11,6 +11,8 @@ function identity(message: YojMessage): string | null {
   const role = message.role ?? 'assistant'
   const response = id(message.responseId)
   if (role === 'assistant' && response) return JSON.stringify(['response', response])
+  const timeline = id(message.timelineId)
+  if (timeline) return JSON.stringify(['timeline', timeline])
   const doc = id(message.docId)
   const msg = id(message.id) ?? id(message.message_id) ?? id(message._id)
   if (msg) return JSON.stringify(['message', doc, role, msg])
@@ -36,8 +38,10 @@ export function getTimelineKeys(messages: YojMessage[]): string[] {
   const counts = new Map<string, number>()
   for (const base of bases) counts.set(base, (counts.get(base) ?? 0) + 1)
   const seen = new Map<string, number>()
-  return bases.map(base => {
+  return bases.map((base,index) => {
     if (counts.get(base) === 1) return base
+    const timeline = id(messages[index].timelineId)
+    if (timeline) return JSON.stringify(['timeline',timeline])
     const occurrence = seen.get(base) ?? 0
     seen.set(base, occurrence + 1)
     return JSON.stringify(['ambiguous', base, occurrence])

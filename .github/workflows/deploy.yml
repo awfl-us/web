@@ -34,6 +34,7 @@ jobs:
           "$RUNNER_TEMP/awfl-playwright/node_modules/.bin/playwright" install --with-deps --only-shell chromium
           node scripts/test-live-responses-browser.mjs
           node scripts/test-session-ux-browser.mjs
+          node scripts/test-session-timeline-browser.mjs
       - name: Retain browser evidence
         if: always()
         uses: actions/upload-artifact@v4

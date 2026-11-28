@@ -22,6 +22,7 @@ export interface SessionDetailProps {
   extrasRight?: React.ReactNode
   composerExtras?: React.ReactNode
   messagePresentation?: MessagePresentation
+  historyControls?: React.ReactNode
 
   // Items (messages/tasks)
   execError?: string | null
@@ -183,6 +184,7 @@ export function SessionDetail(props: SessionDetailProps) {
         <ErrorBanner style={{ marginTop: execError ? 4 : 0 }}>{wfError}</ErrorBanner>
       ) : null}
 
+      {props.historyControls}
       <SessionItemsView
         messagePresentation={messagePresentation}
         activeTaskStatus={activeStatus}

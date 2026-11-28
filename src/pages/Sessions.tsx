@@ -31,8 +31,7 @@ import type { Session } from '../features/sessions/public'
 
 // Hooks
 import { useSessionsList } from '../features/sessions/public'
-import { useTopicContextYoj } from '../features/yoj/public'
-import { useLiveResponses } from '../features/yoj/hooks/useLiveResponses'
+import { useConversation } from '../features/yoj/public'
 import { useWorkflowExec, useDebouncedValue, useSessionPolling } from '../core/public'
 import { useTasksCounts, useSessionTasks } from '../features/tasks/public'
 import { usePlainify } from '../features/plain/public'
@@ -224,17 +223,12 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
     reloadTaskCounts,
   })
 
-  // Topic context messages for selected session (disabled while viewing tasks)
-  const { messages: persistedMessages, running, error: execError, reload } = useTopicContextYoj({
-    sessionId: sel?.id,
-    idToken,
-    projectId,
-    userId: user?.uid,
-    windowSeconds: 3600,
-    enabled: !!sel && !activeTaskStatus,
+  // Reversible pilot: the existing context view remains the default.
+  const [conversationMode, setConversationMode] = useState<'context'|'transcript'>('context')
+  const [timelineReset, setTimelineReset] = useState(0)
+  const {messages,running,error:execError,reload,transcript}=useConversation({
+    sessionId:sel?.id,projectId,userId:user?.uid,idToken,enabled:!!sel&&!activeTaskStatus,mode:conversationMode,
   })
-
-  const messages = useLiveResponses({sessionId:sel?.id,projectId,userId:user?.uid,idToken,enabled:!!sel && !activeTaskStatus,messages:persistedMessages,reload})
 
   // Derive latest exec error when latest status is Failed
   const execStatusError = awx.status === 'Failed' ? (awx.latest?.error || 'Execution failed') : null
@@ -247,7 +241,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // Reusable auto-scroll behavior with "home" detection:
   const home: 'top' | 'bottom' = activeTaskStatus ? 'top' : 'bottom'
   const itemCount = activeTaskStatus ? (sessionTasks?.length || 0) : (messages?.length || 0)
-  const viewKey = JSON.stringify([user?.uid, projectId, sel?.id, activeTaskStatus])
+  const viewKey = JSON.stringify([user?.uid, projectId, sel?.id, activeTaskStatus, conversationMode, timelineReset])
 
   useScrollHome({
     containerRef: scrollRef,
@@ -350,6 +344,15 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
         ) : (
           <SessionDetail
             messagePresentation={appearance}
+            historyControls={!activeTaskStatus ? <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+              <label>History <select aria-label="History view" value={conversationMode} onChange={e=>setConversationMode(e.target.value==='transcript'?'transcript':'context')}>
+                <option value="context">Model context</option><option value="transcript">Transcript (preview)</option>
+              </select></label>
+              {conversationMode==='transcript'&&<>
+                {transcript.hasOlder&&<button disabled={transcript.running||transcript.loadingOlder||transcript.atLimit||transcript.needsReset} onClick={transcript.loadOlder}>Load older messages</button>}
+                {(transcript.atLimit||transcript.needsReset)&&<><span role="status">{transcript.atLimit?'History limit reached; refresh paused.':'History changed; reload required.'}</span><button disabled={transcript.running||transcript.loadingOlder} onClick={()=>{setTimelineReset(n=>n+1);transcript.reset()}}>Reload latest</button></>}
+              </>}
+            </div> : undefined}
             title={sel.title}
             updatedAt={sel.updatedAt}
             counts={taskCounts || undefined}

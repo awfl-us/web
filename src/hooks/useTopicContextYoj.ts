@@ -90,6 +90,7 @@ export function useTopicContextYoj(params: UseTopicContextYojParams): UseTopicCo
       const skipAuth = (import.meta as any)?.env?.VITE_SKIP_AUTH === '1'
       if (!enabled || !sessionId || (!idToken && !skipAuth)) {
         setResult({scope,messages:[]})
+        setRunning(false)
         return
       }
 

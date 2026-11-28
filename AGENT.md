@@ -185,3 +185,7 @@ Session timeline behavior contract
 - Tool disclosures initially collapse; explicit choices belong to scoped timeline interaction state, not renderer mount state. Do not reset choices for polling, temporary empty snapshots, or presentation changes. Server-backed group collapse is separate.
 - One scroll controller owns scroll writes; follow latest only when in follow mode, otherwise retain the visible message and viewport offset. Avoid competing native/custom compensation.
 - Run both Chromium fixtures before session UI changes ship: `node scripts/test-live-responses-browser.mjs` and `node scripts/test-session-ux-browser.mjs`. Test changing history, not just static renders. Never weaken behavior assertions to accommodate appearance changes. See docs/plans/session-chat-ux.md Phase 3A for coverage and outstanding gates.
+
+Transcript preview contract
+- Keep prompt-context projection separate from persisted transcript. Sessions uses useConversation; only one history transport may be active, with one SSE overlay. Do not re-sort server pages, expire loaded rows by clock, or drop history on a transient error. Explicit navigation outranks background refresh.
+- Keep preview reversible until parity, memory/mutation policies and authenticated smoke are complete. Run node scripts/test-session-timeline-browser.mjs alongside the existing browser suites.

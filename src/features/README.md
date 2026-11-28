@@ -147,3 +147,6 @@ Appendix: Theming notes
 Timeline ownership
 - Yoj owns row identity and scoped expansion choices; `YojMessageList` accepts optional `interactionScope` (account/project/session), passed through SessionDetail using its existing draftScope. Without it the public list uses sessionId.
 - Sessions owns viewport policy through useScrollHome. Message row keys are exposed as data-awfl-message-key for anchor restoration. Appearance remains independent. See the Phase 3A behavior contract in the session UX plan.
+
+Transcript preview
+- Yoj public useConversation composes the selected persisted history transport and the existing live response overlay. useSessionTimeline owns scoped cursor pages and bounded retention. The page owns the reversible history mode and presents navigation actions; SessionDetail exposes optional historyControls. Existing model-context API remains available.
