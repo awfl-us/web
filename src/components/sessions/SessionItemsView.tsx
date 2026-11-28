@@ -27,6 +27,7 @@ interface SessionItemsViewProps {
   topRef?: Ref<HTMLDivElement | null>
   // Identity for collapse state persistence
   sessionId?: string | null
+  interactionScope?: string
   idToken?: string | null
 }
 
@@ -47,6 +48,7 @@ export function SessionItemsView({
   bottomRef,
   topRef,
   sessionId,
+  interactionScope,
   idToken,
 }: SessionItemsViewProps) {
   const modern = !activeTaskStatus && messagePresentation.messageStyle !== 'legacy'
@@ -65,6 +67,7 @@ export function SessionItemsView({
   return (
     <div
       ref={containerRef}
+      data-awfl-slot="timeline"
       style={{
         flex: 1,
         minHeight: 0,
@@ -153,18 +156,18 @@ export function SessionItemsView({
               </div>
             ) : null}
           </div>
-        ) : messages.length === 0 && !running && !execError ? (
-          <div style={{ color: '#6b7280', textAlign: 'left' }}>No messages returned.</div>
-        ) : (
+        ) : (<>
+          {messages.length === 0 && !running && !execError && <div style={{ color: '#6b7280', textAlign: 'left' }}>No messages returned.</div>}
           <YojMessageList
             presentation={{ messageStyle: 'conversation', ...messagePresentation }}
             messages={messages as any}
             sessionId={sessionId || undefined}
+            interactionScope={interactionScope}
             idToken={idToken || undefined}
             assistantName={assistantName}
             hideExecGutter={hideExecGutter}
           />
-        )}
+        </>)}
         {/* Bottom sentinel for IO-driven near-bottom detection; disable overflow anchoring here */}
         <div ref={bottomRef as any} style={{ height: 1, overflowAnchor: 'none' as any }} />
       </div>

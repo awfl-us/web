@@ -200,6 +200,7 @@ export function SessionDetail(props: SessionDetailProps) {
         bottomRef={bottomRef}
         topRef={topRef}
         sessionId={sessionId || undefined}
+        interactionScope={draftScope}
         idToken={idToken || undefined}
       />
 

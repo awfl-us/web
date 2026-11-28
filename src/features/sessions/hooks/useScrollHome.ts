@@ -1,176 +1,103 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { anchoredScrollTop, captureReadingAnchors, type ReadingAnchor } from '../utils/readingAnchor'
 
 export type UseScrollHomeOptions = {
   containerRef: React.RefObject<HTMLElement | null>
-  // Retained for callers using the old API; scrolling only containerRef avoids moving ancestors.
+  // Retained for existing consumers. Only the container is scrolled.
   anchorRef?: React.RefObject<HTMLElement | null>
   itemCount: number
   home: 'bottom' | 'top'
   enabled?: boolean
-  // When this key changes (e.g., sessionId or view mode), the hook resets initial scrolling state.
   key?: string | number | null | undefined
-  threshold?: number // px tolerance from home
-  // Optional: once the user scrolls away beyond this distance, we will not auto-scroll again
-  // until they explicitly return to home (within `threshold`). Helps prevent jumps when
-  // content above/below changes height without scroll events.
-  stickyAwayThreshold?: number // px distance from home to consider the user "away"
+  threshold?: number
+  // Deprecated: reading/follow intent is now independent of content growth.
+  stickyAwayThreshold?: number
 }
 
-export function useScrollHome({
-  containerRef,
-  itemCount,
-  home,
-  enabled = true,
-  key,
-  threshold = 8,
-  stickyAwayThreshold = 48,
-}: UseScrollHomeOptions) {
-  const [isAtHome, setIsAtHome] = useState(true)
-  const prevCountRef = useRef(0)
-  const didInitialRef = useRef(false)
-  const awayRef = useRef(false) // sticky flag: user scrolled away far enough
-  const lastObservedAtHomeRef = useRef(true) // based on user scroll/explicit measurements prior to new items
-  const lastHeightRef = useRef(0)
+type Policy = {
+  initialized: boolean
+  mode: 'follow' | 'read'
+  anchors: ReadingAnchor[]
+  lastTop: number
+  readerTop: number
+}
+const initialPolicy = (): Policy => ({initialized:false,mode:'follow',anchors:[],lastTop:0,readerTop:0})
 
-  // Helper to compute distance-from-home and booleans
-  const compute = useCallback((el: HTMLElement | null) => {
-    if (!el) {
-      return { dist: 0, atHome: true, awaySticky: false }
-    }
-    const { scrollTop, scrollHeight, clientHeight } = el
-    if (home === 'bottom') {
-      const distFromBottom = scrollHeight - (scrollTop + clientHeight)
-      return {
-        dist: distFromBottom,
-        atHome: distFromBottom <= threshold,
-        awaySticky: distFromBottom > stickyAwayThreshold,
-      }
-    } else {
-      const distFromTop = scrollTop
-      return {
-        dist: distFromTop,
-        atHome: distFromTop <= threshold,
-        awaySticky: distFromTop > stickyAwayThreshold,
-      }
-    }
-  }, [home, threshold, stickyAwayThreshold])
+// One owner for programmatic scrolling. Background changes apply the current
+// policy; they never infer intent from a change in scrollHeight or message count.
+export function useScrollHome({containerRef,itemCount,home,enabled=true,key,threshold=8}: UseScrollHomeOptions) {
+  const [isAtHome,setIsAtHome] = useState(true)
+  const applyRef = useRef<(() => void) | null>(null)
+  const countRef = useRef(itemCount)
+  countRef.current = itemCount
 
-  // Recompute isAtHome based on scroll position and listen for explicit user-expansion events
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled) return
     const el = containerRef.current
     if (!el) return
-
-    function scrollToHome() {
-      if (!el) return
-      el.scrollTop = home === 'bottom' ? el.scrollHeight : 0
+    const p = initialPolicy()
+    const previousOverflowAnchor = el.style.overflowAnchor
+    // Explicit anchor restoration and native anchoring must not both compensate.
+    el.style.overflowAnchor = 'none'
+    const homeTop = () => home === 'bottom' ? Math.max(0,el.scrollHeight-el.clientHeight) : 0
+    const atHome = () => Math.abs(el.scrollTop-homeTop()) <= threshold
+    function remember() {
+      p.readerTop = el!.scrollTop
+      const next = captureReadingAnchors(el!)
+      // A transient empty response should not erase the last known reading anchor.
+      if (next.length) p.anchors = next
     }
-
+    function apply() {
+      if (!p.initialized && countRef.current > 0) p.initialized = true
+      if (!p.initialized) return
+      const target = p.mode === 'follow' ? homeTop() : anchoredScrollTop(el!,p.anchors,p.readerTop)
+      const clamped = Math.max(0,Math.min(Math.max(0,el!.scrollHeight-el!.clientHeight),target))
+      if (Math.abs(el!.scrollTop-clamped) > 0.5) el!.scrollTop = clamped
+      p.lastTop = el!.scrollTop
+      if (p.mode === 'read' && countRef.current > 0) remember()
+      setIsAtHome(p.mode === 'follow')
+    }
     function onScroll() {
-      const node = containerRef.current
-      if (!node) return
-      // Content growth may itself produce a scroll event before the ResizeObserver
-      // callback. Don't mistake that for the user scrolling away from the bottom.
-      if (node.scrollHeight !== lastHeightRef.current && lastObservedAtHomeRef.current && !awayRef.current) {
-        scrollToHome()
-      }
-      const { atHome, awaySticky } = compute(node)
-      setIsAtHome(atHome)
-      lastObservedAtHomeRef.current = atHome
-      if (awaySticky) awayRef.current = true
-      if (atHome) awayRef.current = false // reset sticky when user returns home
-      lastHeightRef.current = node.scrollHeight
+      // Ignore the event produced by our own write (including a resize clamp
+      // already reconciled in the layout/ResizeObserver callback).
+      if (Math.abs(el!.scrollTop-p.lastTop) <= 0.5) return
+      p.lastTop = el!.scrollTop
+      p.mode = atHome() ? 'follow' : 'read'
+      if (p.mode === 'read') remember()
+      else p.anchors = []
+      setIsAtHome(p.mode === 'follow')
     }
-
-    function onUserContentExpand() {
-      // A user-initiated expand/collapse likely changed content height without a scroll event.
-      // Treat this as an explicit "away" interaction so we don't auto-scroll on the next item.
-      awayRef.current = true
+    function onExpand() {
+      p.mode = 'read'
+      p.lastTop = el!.scrollTop
+      remember()
       setIsAtHome(false)
-      lastObservedAtHomeRef.current = false
     }
-
-    // Initialize
-    {
-      const { atHome, awaySticky } = compute(el)
-      setIsAtHome(atHome)
-      lastObservedAtHomeRef.current = atHome
-      if (awaySticky) awayRef.current = true
-      if (atHome) awayRef.current = false
-      lastHeightRef.current = el.scrollHeight
+    function onWheel(event: WheelEvent) {
+      // A gesture away from home can precede its scroll event. Don't snap back
+      // to home if a streaming update lands in that interval.
+      if ((home === 'bottom' && event.deltaY < 0) || (home === 'top' && event.deltaY > 0)) onExpand()
     }
-
-    // Messages can stream into an existing item without changing itemCount.
-    // Follow content-size changes when already at home, but never move a reader
-    // who has scrolled away. Observe the content as well as viewport resizes.
-    const resizeObserver = new ResizeObserver(() => {
-      if (!awayRef.current && lastObservedAtHomeRef.current) scrollToHome()
-      lastHeightRef.current = el.scrollHeight
-    })
-    resizeObserver.observe(el)
-    if (el.firstElementChild) resizeObserver.observe(el.firstElementChild)
-
-    el.addEventListener('scroll', onScroll, { passive: true })
-    el.addEventListener('awfl:user-content-expand', onUserContentExpand as EventListener)
-
+    const observer = new ResizeObserver(apply)
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+    el.addEventListener('scroll',onScroll,{passive:true})
+    el.addEventListener('wheel',onWheel,{passive:true})
+    el.addEventListener('awfl:user-content-expand',onExpand)
+    applyRef.current = apply
+    apply()
     return () => {
-      resizeObserver.disconnect()
-      el.removeEventListener('scroll', onScroll)
-      el.removeEventListener('awfl:user-content-expand', onUserContentExpand as EventListener)
+      applyRef.current = null
+      observer.disconnect()
+      el.removeEventListener('scroll',onScroll)
+      el.removeEventListener('wheel',onWheel)
+      el.removeEventListener('awfl:user-content-expand',onExpand)
+      el.style.overflowAnchor = previousOverflowAnchor
     }
-  }, [containerRef, enabled, home, compute])
+  },[containerRef,enabled,key,home,threshold])
 
-  // Reset counters when key (e.g., session/view) changes
-  useLayoutEffect(() => {
-    prevCountRef.current = 0
-    didInitialRef.current = false
-    awayRef.current = false
-    lastObservedAtHomeRef.current = true
-    lastHeightRef.current = 0
-  }, [key])
-
-  // Preserve position and/or scroll to home on initial load or when new items arrive
-  useLayoutEffect(() => {
-    if (!enabled) return
-
-    const node = containerRef.current
-    if (!node) return
-    const nodeEl: HTMLElement = node
-
-    const prev = prevCountRef.current
-    const count = itemCount || 0
-    // A transient empty update must not look like a new session and snap the reader to bottom.
-    const isInitial = !didInitialRef.current && count > 0
-    const hasCountChange = count !== prev
-
-    function scrollToHome(behavior: ScrollBehavior) {
-      nodeEl.scrollTo({ top: home === 'bottom' ? nodeEl.scrollHeight : 0, behavior })
-    }
-
-    // Measurement at decision time (may reflect content shifts)
-    const { atHome: nowAtHome, awaySticky } = compute(nodeEl)
-    const wasAtHome = lastObservedAtHomeRef.current
-    const userScrolledAway = awayRef.current
-
-    if (isInitial) {
-      // Always snap to home on first render with content
-      scrollToHome('auto')
-      didInitialRef.current = true
-      awayRef.current = false
-    } else if (!wasAtHome || userScrolledAway) {
-      // Leave the viewport untouched when reading history. The browser's native
-      // scroll anchoring already handles insertions above the visible messages;
-      // adding the full height delta here incorrectly follows appended messages.
-    } else if (hasCountChange) {
-      // User was at home; keep them pinned there on updates
-      if (!userScrolledAway && (wasAtHome || (nowAtHome && !awaySticky))) {
-        scrollToHome('auto')
-      }
-    }
-
-    // Update refs for next pass
-    prevCountRef.current = count
-  }, [itemCount, enabled, home, compute, containerRef, key])
-
-  return { isAtHome }
+  // Run after React updates the timeline even when itemCount is unchanged.
+  // ResizeObserver also handles asynchronous height/layout changes.
+  useLayoutEffect(() => { applyRef.current?.() })
+  return {isAtHome}
 }

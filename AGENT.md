@@ -179,3 +179,9 @@ Checkpoints before merging
 - Run `npm run typecheck` and `npm run lint`.
 - Validate both authenticated and VITE_SKIP_AUTH=1 dev flows.
 - Verify no regressions in selection, filtering, and message rendering.
+
+Session timeline behavior contract
+- Preserve canonical row identity across polls and live/persisted reconciliation. Never key identifiable rows by position. Ambiguous/missing identifiers must remain distinct; document continuity limits.
+- Tool disclosures initially collapse; explicit choices belong to scoped timeline interaction state, not renderer mount state. Do not reset choices for polling, temporary empty snapshots, or presentation changes. Server-backed group collapse is separate.
+- One scroll controller owns scroll writes; follow latest only when in follow mode, otherwise retain the visible message and viewport offset. Avoid competing native/custom compensation.
+- Run both Chromium fixtures before session UI changes ship: `node scripts/test-live-responses-browser.mjs` and `node scripts/test-session-ux-browser.mjs`. Test changing history, not just static renders. Never weaken behavior assertions to accommodate appearance changes. See docs/plans/session-chat-ux.md Phase 3A for coverage and outstanding gates.

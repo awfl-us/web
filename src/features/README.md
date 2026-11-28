@@ -143,3 +143,7 @@ Appendix: Theming notes
 - YojMessageList tokens: --yoj-user-bg, --yoj-user-border, --yoj-user-label; --yoj-system-bg, --yoj-system-border, --yoj-system-label; --yoj-assistant-bg, --yoj-assistant-border, --yoj-assistant-label; --yoj-toolcalls-bg, --yoj-toolcalls-border, --yoj-toolcalls-title, --yoj-toolcall-name; --yoj-code-bg; --yoj-meta.
 - CollapsedGroupCard tokens: --yoj-cg-bg, --yoj-cg-border, --yoj-cg-radius, --yoj-cg-padding, --yoj-cg-label-color, --yoj-cg-desc-color; toggle: --yoj-cg-toggle-border, --yoj-cg-toggle-color, --yoj-cg-toggle-bg, --yoj-cg-toggle-bg-hover, --yoj-cg-toggle-bg-expanded, --yoj-cg-toggle-bg-expanded-hover; body: --yoj-cg-body-bg, --yoj-cg-body-border, --yoj-cg-body-radius, --yoj-cg-body-padding; toast: --yoj-cg-toast-bg, --yoj-cg-toast-color, --yoj-cg-toast-border.
 - See the respective CSS modules for defaults and class structure.
+
+Timeline ownership
+- Yoj owns row identity and scoped expansion choices; `YojMessageList` accepts optional `interactionScope` (account/project/session), passed through SessionDetail using its existing draftScope. Without it the public list uses sessionId.
+- Sessions owns viewport policy through useScrollHome. Message row keys are exposed as data-awfl-message-key for anchor restoration. Appearance remains independent. See the Phase 3A behavior contract in the session UX plan.

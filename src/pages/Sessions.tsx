@@ -247,7 +247,7 @@ export default function Sessions(props: { projectId?: string | null } = {}) {
   // Reusable auto-scroll behavior with "home" detection:
   const home: 'top' | 'bottom' = activeTaskStatus ? 'top' : 'bottom'
   const itemCount = activeTaskStatus ? (sessionTasks?.length || 0) : (messages?.length || 0)
-  const viewKey = `${sel?.id || 'none'}:${activeTaskStatus ? `tasks:${activeTaskStatus}` : 'messages'}`
+  const viewKey = JSON.stringify([user?.uid, projectId, sel?.id, activeTaskStatus])
 
   useScrollHome({
     containerRef: scrollRef,

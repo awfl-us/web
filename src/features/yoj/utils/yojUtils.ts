@@ -1,22 +1,6 @@
 import type { YojMessage } from '../../../types/context'
 
-// Prefer stable keys so expanded state doesn't reset on polling refreshes
-export function getMessageKey(m: YojMessage, idx: number): string {
-  if (m.role === 'assistant' && typeof m.responseId === 'string' && m.responseId && m.responseId !== 'null') return `response:${m.responseId}`
-  // Only treat per-message identifiers as authoritative keys; docId alone
-  // can be shared across multiple messages and must not be used by itself.
-  const msgId = (m as any).id || (m as any).message_id || (m as any)._id
-  const docId = (m as any).docId
-  if (msgId) return docId ? `${String(docId)}:${String(msgId)}` : String(msgId)
-
-  const t = m?.create_time ? String(m.create_time) : ''
-  const r = m?.role ? String(m.role) : ''
-
-  // Build a base from docId/timestamp/role and always append idx when
-  // no per-message id is available to guarantee uniqueness.
-  const base = docId ? `${String(docId)}|${t}|${r}` : `${t}|${r}`
-  return `${base}|${idx}`
-}
+export { getMessageKey } from './timelineIdentity'
 
 export function formatUsd(cost?: number | null): string | null {
   if (typeof cost !== 'number' || !isFinite(cost)) return null

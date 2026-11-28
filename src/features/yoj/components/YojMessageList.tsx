@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import type { YojMessage } from '../../../types/context'
 import { Collapsible } from '../../../components/common/Collapsible'
 import { CollapsedGroupCard } from '../../../components/context/CollapsedGroupCard'
 import { ExecGutter } from '../../exec/public'
-import { computeLaneTimeline, computeExecBranchAdjacency, formatUsd, getMessageKey, getExecId } from '../utils/yojUtils'
+import { computeLaneTimeline, computeExecBranchAdjacency, formatUsd, getExecId } from '../utils/yojUtils'
 import { extractMarker, parseJsonLikeWithRemainder, splitAtFirstMarker } from '../utils/markers'
 import styles from './YojMessageList.module.css'
 import { MarkdownMessage } from './MarkdownMessage'
 import { CopyTextButton } from './CopyTextButton'
+import { getTimelineKeys } from '../utils/timelineIdentity'
 import { indexActivity } from '../utils/activity'
 import { ToolCallActivity, ToolResultActivity } from './ActivityDetails'
 
@@ -84,13 +85,20 @@ function renderNestedBranch(args: {
   )
 }
 
-export function YojMessageList(props: { messages: YojMessage[]; sessionId?: string; idToken?: string; assistantName?: string; hideExecGutter?: boolean; presentation?: MessagePresentation }) {
+type MessageListProps = { messages: YojMessage[]; sessionId?: string; idToken?: string; assistantName?: string; hideExecGutter?: boolean; presentation?: MessagePresentation; interactionScope?: string }
+
+export function YojMessageList(props: MessageListProps) {
+  return <ScopedMessageList key={props.interactionScope ?? props.sessionId ?? "default"} {...props}/>
+}
+
+function ScopedMessageList(props: MessageListProps) {
   const { messages, sessionId, idToken, assistantName, hideExecGutter, presentation } = props
   const modern = presentation?.messageStyle === 'conversation'
   const showTimestamps = presentation?.showTimestamps !== false
   const showCosts = presentation?.showCosts !== false
   const compactActivity = modern && presentation?.activityMode !== 'detailed'
   const activity = useMemo(() => compactActivity ? indexActivity(messages) : null, [messages, compactActivity])
+  const keys = useMemo(() => getTimelineKeys(messages), [messages])
   const [expandedByKey, setExpandedByKey] = useState<Record<string, boolean>>({})
 
   const { laneByIndex, lanesByIndex } = useMemo(() => computeLaneTimeline(messages), [messages])
@@ -99,31 +107,18 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
   const onExpandedChange = useCallback((key: string, expanded: boolean) => {
     setExpandedByKey((prev) => {
       if (prev[key] === expanded) return prev
-      return { ...prev, [key]: expanded }
+      // Keep explicit choices across temporary window omissions. Bounded per mounted session.
+      const entries = Object.entries(prev).filter(([existing]) => existing !== key)
+      return Object.fromEntries([...entries.slice(-2047), [key, expanded]])
     })
   }, [])
-
-  useEffect(() => {
-    const liveKeys = new Set<string>()
-
-    messages.forEach((m, idx) => {
-      const key = getMessageKey(m, idx)
-      liveKeys.add(`${key}:message`)
-    })
-
-    setExpandedByKey((prev) => {
-      const nextEntries = Object.entries(prev).filter(([key]) => liveKeys.has(key) || key.includes(':card:'))
-      if (nextEntries.length === Object.keys(prev).length) return prev
-      return Object.fromEntries(nextEntries)
-    })
-  }, [messages])
 
   return (
     <div className={cx(styles.yojList, modern && styles.conversation)} data-awfl-message-style={modern ? 'conversation' : 'legacy'}>
       {messages.map((m, idx) => {
         if (m.liveResponse === true && !modern) {
-          const key = getMessageKey(m, idx)
-          return <div key={key} className={styles.row} data-live-response={m.responseId}>
+          const key = keys[idx]
+          return <div key={key} data-awfl-message-key={key} className={styles.row} data-live-response={m.responseId}>
             <div className={cx(styles.bubble, styles.bubbleAssistant)}>
               <div className={cx(styles.label, styles.labelAssistant)}>{assistantName?.trim() || 'Assistant'}</div>
               <pre className={styles.preText}>{m.content}</pre>
@@ -142,7 +137,7 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         const nextConn = execId ? nextSame[idx] : false
 
         if (marker) {
-          const key = getMessageKey(m, idx)
+          const key = keys[idx]
           const messageExpandedKey = `${key}:message`
           const messageExpanded = expandedByKey[messageExpandedKey] ?? (marker.kind === 'expanded')
 
@@ -158,7 +153,7 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
           const toolCalls = Array.isArray((m as any)?.tool_calls) ? (m as any).tool_calls : null
 
           return (
-            <div key={key} className={styles.row}>
+            <div key={key} data-awfl-message-key={key} className={styles.row}>
               {!hideExecGutter ? <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} /> : null}
               <div className={styles.contentFlex}>
                 <CollapsedGroupCard
@@ -224,7 +219,7 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         const toolCalls = Array.isArray((m as any)?.tool_calls) ? (m as any).tool_calls : null
         const hasRenderable = (content && content.length > 0) || (toolCalls && toolCalls.length > 0)
         const fallback = !hasRenderable ? JSON.stringify(m, null, 2) : ''
-        const key = getMessageKey(m, idx)
+        const key = keys[idx]
         const messageExpandedKey = `${key}:message`
         const messageExpanded = expandedByKey[messageExpandedKey] ?? false
 
@@ -249,15 +244,15 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         // Activity rows stay at their original timeline position, including results
         // from interleaved execution branches. The detailed view is unchanged.
         if (result || calls?.length) {
-          return <div key={key} className={styles.row}>
+          return <div key={key} data-awfl-message-key={key} className={styles.row}>
             {!hideExecGutter ? <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn}/> : null}
             <div className={styles.contentFlex}>
               {content && !result && <div className={cx(styles.bubble, bubbleVariant)}>
                 <div className={cx(styles.label, labelVariant)}>{role === 'assistant' ? assistantLabel : String(role).toUpperCase()}</div>
                 {renderNestedBranch({text:content, sessionId, idToken, keyBase:key + ':content', rich:role === 'assistant', expandedByKey, onExpandedChange})}
               </div>}
-              {calls?.length ? <ToolCallActivity calls={calls} message={m}/> : null}
-              {result && <ToolResultActivity result={result} message={m}/>}
+              {calls?.length ? <ToolCallActivity calls={calls} message={m} open={messageExpanded} onOpenChange={expanded => onExpandedChange(messageExpandedKey, expanded)}/> : null}
+              {result && <ToolResultActivity result={result} message={m} open={messageExpanded} onOpenChange={expanded => onExpandedChange(messageExpandedKey, expanded)}/>}
               {metaText && <div className={styles.meta}>{metaText}</div>}
             </div>
           </div>
@@ -268,7 +263,7 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         if (modern && role === 'assistant' && content && !toolCalls?.length &&
           (m.liveResponse || !splitAtFirstMarker(content))) {
           return (
-            <div key={key} className={styles.row} data-live-response={m.liveResponse ? m.responseId : undefined}>
+            <div key={key} data-awfl-message-key={key} className={styles.row} data-live-response={m.liveResponse ? m.responseId : undefined}>
               {!hideExecGutter ? <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} /> : null}
               <div className={cx(styles.bubble, styles.bubbleAssistant)}>
                 <div className={cx(styles.label, styles.labelAssistant)}>{assistantLabel}</div>
@@ -283,7 +278,7 @@ export function YojMessageList(props: { messages: YojMessage[]; sessionId?: stri
         }
 
         return (
-          <div key={key} className={styles.row}>
+          <div key={key} data-awfl-message-key={key} className={styles.row}>
             {!hideExecGutter ? <ExecGutter lane={lane} lanes={lanes} showDot prevSame={prevConn} nextSame={nextConn} /> : null}
             <div className={cx(styles.bubble, bubbleVariant)}>
               <div className={cx(styles.label, labelVariant)}>{role === 'assistant' ? assistantLabel : modern && role === 'user' ? 'You' : String(role).toUpperCase()}</div>

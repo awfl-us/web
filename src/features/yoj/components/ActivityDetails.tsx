@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import type { YojMessage } from '../../../types/context'
 import { toolLabel, type ActivityCall, type ActivityResult } from '../utils/activity'
 import { CopyTextButton } from './CopyTextButton'
@@ -12,13 +12,14 @@ function RawData({ value }: { value: unknown }) {
   </div>
 }
 
-function Disclosure({ summary, children, kind }: {summary: ReactNode; children: ReactNode; kind: string}) {
-  const [open, setOpen] = useState(false)
+type DisclosureState = {open: boolean; onOpenChange: (open: boolean) => void}
+
+function Disclosure({ summary, children, kind, open, onOpenChange }: {summary: ReactNode; children: ReactNode; kind: string} & DisclosureState) {
   const root = useRef<HTMLDivElement>(null)
   return <div className={styles.activity} data-awfl-slot="activity" data-activity-kind={kind} ref={root}>
     <button type="button" className={styles.toggle} aria-expanded={open} onClick={() => {
       root.current?.dispatchEvent(new CustomEvent('awfl:user-content-expand', {bubbles: true}))
-      setOpen(v => !v)
+      onOpenChange(!open)
     }}>
       <span className={styles.chevron} aria-hidden="true">{open ? '▾' : '▸'}</span>
       <span className={styles.summary}>{summary}</span>
@@ -27,11 +28,11 @@ function Disclosure({ summary, children, kind }: {summary: ReactNode; children: 
   </div>
 }
 
-export function ToolCallActivity({ calls, message }: {calls: ActivityCall[]; message: YojMessage}) {
+export function ToolCallActivity({ calls, message, ...state }: {calls: ActivityCall[]; message: YojMessage} & DisclosureState) {
   const recorded = calls.filter(c => c.resultIndex !== undefined).length
   const names = calls.map(c => toolLabel(c.name))
   const title = calls.length === 1 ? names[0] : calls.length + ' tool calls'
-  return <Disclosure kind="calls" summary={<>
+  return <Disclosure {...state} kind="calls" summary={<>
     <span className={styles.name}>{title}</span>
     <span className={styles.state}>{recorded === 0 ? 'No result recorded' : recorded + '/' + calls.length + ' results recorded'}</span>
   </>}>
@@ -44,8 +45,8 @@ export function ToolCallActivity({ calls, message }: {calls: ActivityCall[]; mes
   </Disclosure>
 }
 
-export function ToolResultActivity({ result, message }: {result: ActivityResult; message: YojMessage}) {
-  return <Disclosure kind="result" summary={<>
+export function ToolResultActivity({ result, message, ...state }: {result: ActivityResult; message: YojMessage} & DisclosureState) {
+  return <Disclosure {...state} kind="result" summary={<>
     <span className={styles.name}>{result.call ? toolLabel(result.call.name) + ' result' : 'Tool result'}</span>
     <span className={styles.state}>{result.call ? 'Recorded' : 'Unmatched in this view'}</span>
   </>}>
